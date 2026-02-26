@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/f_Cuentas"
+        android:icon="@android:drawable/ic_menu_agenda"
+        android:title="Cuentas" />
+
+    <item
+        android:id="@+id/f_ListaCompra"
+        android:icon="@android:drawable/ic_menu_add"
+        android:title="Compra" />
+    <item
+        android:id="@+id/f_StockCocina"
+        android:icon="@android:drawable/ic_menu_gallery"
+        android:title="Cocina" />
+
+    <item
+        android:id="@+id/f_Tareas"
+        android:icon="@android:drawable/ic_menu_myplaces"
+        android:title="Tareas" />
+
+
+
+</menu>

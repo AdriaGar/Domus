@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_app"
+    app:startDestination="@id/f_Cuentas">
+
+    <fragment
+        android:id="@+id/f_Cuentas"
+        android:name="com.example.domus.app.F_Cuentas"
+        android:label="fragment_cuentas"
+        tools:layout="@layout/fragment_cuentas" />
+    <fragment
+        android:id="@+id/f_ListaCompra"
+        android:name="com.example.domus.app.F_ListaCompra"
+        android:label="fragment_lista_compra"
+        tools:layout="@layout/fragment_lista_compra" />
+    <fragment
+        android:id="@+id/f_Tareas"
+        android:name="com.example.domus.app.F_Tareas"
+        android:label="fragment_tareas"
+        tools:layout="@layout/fragment_tareas" />
+    <fragment
+        android:id="@+id/f_StockCocina"
+        android:name="com.example.domus.app.F_StockCocina"
+        android:label="fragment_stock_cocina"
+        tools:layout="@layout/fragment_stock_cocina" />
+</navigation>

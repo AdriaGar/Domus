@@ -12,6 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Domus">
         <activity
+            android:name=".app.A_Applicacion"
+            android:exported="false" />
+        <activity
             android:name=".sesion.A_Sesion"
             android:exported="true">
             <intent-filter>

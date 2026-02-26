@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Domus</string>
+    <string name="default_web_client_id">project-683199170405</string>
 </resources>

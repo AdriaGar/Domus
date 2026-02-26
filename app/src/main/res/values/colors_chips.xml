@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colores para los estados de los Chips -->
+
+    <!-- Chip Gasto -->
+    <color name="chip_gasto_background_checked">#FFC1C1</color>
+    <color name="chip_gasto_background_unchecked">#FFEADD</color>
+    <color name="chip_gasto_text_checked">#D32F2F</color>
+    <color name="chip_gasto_text_unchecked">#795548</color>
+    <color name="chip_gasto_background">@color/chip_gasto_background_unchecked</color>
+    <color name="chip_gasto_text">@color/chip_gasto_text_unchecked</color>
+
+    <!-- Chip Ingreso -->
+    <color name="chip_ingreso_background_checked">#C8E6C9</color>
+    <color name="chip_ingreso_background_unchecked">#E8F5E9</color>
+    <color name="chip_ingreso_text_checked">#388E3C</color>
+    <color name="chip_ingreso_text_unchecked">#4CAF50</color>
+    <color name="chip_ingreso_background">@color/chip_ingreso_background_unchecked</color>
+    <color name="chip_ingreso_text">@color/chip_ingreso_text_unchecked</color>
+
+    <!-- Chip Transferencia -->
+    <color name="chip_transferencia_background_checked">#BBDEFB</color>
+    <color name="chip_transferencia_background_unchecked">#E3F2FD</color>
+    <color name="chip_transferencia_text_checked">#1976D2</color>
+    <color name="chip_transferencia_text_unchecked">#2196F3</color>
+    <color name="chip_transferencia_background">@color/chip_transferencia_background_unchecked</color>
+    <color name="chip_transferencia_text">@color/chip_transferencia_text_unchecked</color>
+
+    <!-- Colores para los importes de las transacciones -->
+    <color name="importe_gasto">#D32F2F</color>
+    <color name="importe_ingreso">#388E3C</color>
+    <color name="importe_transferencia">#1976D2</color>
+
+</resources>
