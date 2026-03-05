@@ -21,6 +21,9 @@ data class Transaccion(
     // Quién pagó
     val usuarioId: String = "",
     val usuarioNombre: String = "",
+    
+    // A qué familia pertenece (si es nulo, es personal)
+    val familiaId: String? = null,
 
     // Quiénes tienen que pagar (lista de IDs de usuario)
     val participantes: List<String> = emptyList(),

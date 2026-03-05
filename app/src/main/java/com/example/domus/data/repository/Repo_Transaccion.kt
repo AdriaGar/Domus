@@ -5,6 +5,8 @@ import com.example.domus.data.database.TransaccionDao
 import com.example.domus.data.Entity.Transaccion
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.toObjects
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,47 +22,27 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
     private val auth = FirebaseAuth.getInstance()
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val idGrupoCuentas = "grupo_principal"
-    private val transaccionesCollection = firestore.collection("grupos").document(idGrupoCuentas).collection("transacciones")
+    private val transaccionesCollection = firestore.collection("transacciones")
+    private var snapshotListener: ListenerRegistration? = null
 
     val allTransacciones: Flow<List<Transaccion>> = transaccionDao.getAll()
 
     init {
-        Log.d(TAG, "Repo_Transaccion inicializado. Iniciando sincronización.")
-        syncTransacciones()
+        Log.d(TAG, "Repo_Transaccion inicializado.")
     }
 
-    suspend fun addTransaccion(transaccion: Transaccion) {
-        if (auth.currentUser != null) {
-            try {
-                Log.d(TAG, "Añadiendo transacción a Firestore: $transaccion")
-                val documentReference = transaccionesCollection.document()
-                val transaccionConId = transaccion.copy(id = documentReference.id)
-                documentReference.set(transaccionConId).await()
-                Log.d(TAG, "Transacción añadida a Firestore con éxito. ID: ${documentReference.id}")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error al añadir la transacción a Firestore", e)
-            }
+    fun startSync(familiaId: String?) {
+        snapshotListener?.remove()
+        
+        val userId = auth.currentUser?.uid ?: return
+        
+        val query = if (familiaId != null) {
+            transaccionesCollection.whereEqualTo("familiaId", familiaId)
         } else {
-            Log.w(TAG, "No se puede añadir transacción, usuario no autenticado")
+            transaccionesCollection.whereEqualTo("usuarioId", userId).whereEqualTo("familiaId", null)
         }
-    }
 
-    suspend fun updateTransaccion(transaccion: Transaccion) {
-        if (auth.currentUser != null && transaccion.id.isNotEmpty()) {
-            try {
-                Log.d(TAG, "Actualizando transacción en Firestore: ${transaccion.id}")
-                // Usamos el ID existente para sobrescribir el documento en Firestore
-                transaccionesCollection.document(transaccion.id).set(transaccion).await()
-                Log.d(TAG, "Transacción actualizada con éxito.")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error al actualizar la transacción en Firestore", e)
-            }
-        }
-    }
-
-    private fun syncTransacciones() {
-        transaccionesCollection.addSnapshotListener { snapshots, e ->
+        snapshotListener = query.addSnapshotListener { snapshots, e ->
             if (e != null) {
                 Log.e(TAG, "Error en el listener de Firestore.", e)
                 return@addSnapshotListener
@@ -68,17 +50,100 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
 
             if (snapshots != null) {
                 val transacciones = snapshots.toObjects(Transaccion::class.java)
-                Log.d(TAG, "Firestore ha devuelto ${transacciones.size} transacciones. Sincronizando con Room...")
                 repositoryScope.launch {
                     try {
                         transaccionDao.deleteAll()
                         transaccionDao.insertAll(transacciones)
-                        Log.d(TAG, "Room actualizado con éxito.")
                     } catch(dbError: Exception) {
-                        Log.e(TAG, "Error al actualizar la base de datos de Room", dbError)
+                        Log.e(TAG, "Error al actualizar Room", dbError)
                     }
                 }
             }
+        }
+    }
+
+    suspend fun addTransaccion(transaccion: Transaccion, familiaId: String?) {
+        val user = auth.currentUser ?: return
+        try {
+            val docRef = transaccionesCollection.document()
+            val finalTransaccion = transaccion.copy(
+                id = docRef.id,
+                usuarioId = user.uid,
+                familiaId = familiaId
+            )
+            docRef.set(finalTransaccion).await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error al añadir transacción", e)
+        }
+    }
+
+    suspend fun updateTransaccion(transaccion: Transaccion) {
+        if (transaccion.id.isNotEmpty()) {
+            try {
+                transaccionesCollection.document(transaccion.id).set(transaccion).await()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error al actualizar transacción", e)
+            }
+        }
+    }
+
+    suspend fun deleteTransaccion(transaccion: Transaccion) {
+        if (transaccion.id.isNotEmpty()) {
+            try {
+                transaccionesCollection.document(transaccion.id).delete().await()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error al eliminar transacción", e)
+            }
+        }
+    }
+
+    suspend fun transferPersonalToFamily(userId: String, familiaId: String) {
+        try {
+            val personalTrans = transaccionesCollection
+                .whereEqualTo("usuarioId", userId)
+                .whereEqualTo("familiaId", null)
+                .get().await()
+
+            firestore.runTransaction { transaction ->
+                personalTrans.documents.forEach { doc ->
+                    transaction.update(doc.reference, "familiaId", familiaId)
+                }
+            }.await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error al transferir transacciones", e)
+        }
+    }
+
+    suspend fun deleteFamilyData(familiaId: String) {
+        try {
+            val familyTrans = transaccionesCollection
+                .whereEqualTo("familiaId", familiaId)
+                .get().await()
+
+            firestore.runTransaction { transaction ->
+                familyTrans.documents.forEach { doc ->
+                    transaction.delete(doc.reference)
+                }
+            }.await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error al borrar datos de familia", e)
+        }
+    }
+
+    suspend fun deletePersonalData(userId: String) {
+        try {
+            val personalTrans = transaccionesCollection
+                .whereEqualTo("usuarioId", userId)
+                .whereEqualTo("familiaId", null)
+                .get().await()
+
+            firestore.runTransaction { transaction ->
+                personalTrans.documents.forEach { doc ->
+                    transaction.delete(doc.reference)
+                }
+            }.await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error al borrar datos personales", e)
         }
     }
 }

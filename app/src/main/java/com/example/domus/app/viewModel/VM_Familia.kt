@@ -8,10 +8,10 @@ import com.example.domus.data.database.DB_Domus
 import com.example.domus.data.model.Family
 import com.example.domus.data.repository.MemberInfo
 import com.example.domus.data.repository.Repo_Familia
+import com.example.domus.data.repository.Repo_Transaccion
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 sealed class FamilyState {
@@ -30,6 +30,7 @@ sealed class FamilyState {
 
 class VM_Familia(application: Application) : AndroidViewModel(application) {
     private val repository = Repo_Familia()
+    private val repoTransaccion = Repo_Transaccion(DB_Domus.getDatabase(application).transaccionDao())
     private val auth = FirebaseAuth.getInstance()
     private val db = DB_Domus.getDatabase(application)
     private val familiaDao = db.familiaDao()
@@ -58,8 +59,6 @@ class VM_Familia(application: Application) : AndroidViewModel(application) {
                     members = entity.members,
                     pendingMembers = entity.pendingMembers
                 )
-                // Nota: Los detalles de los miembros (fotos, nombres) 
-                // se siguen cargando de Firebase por ahora para estar actualizados.
                 val members = repository.getMembersDetails(family.members)
                 val userId = auth.currentUser?.uid ?: ""
                 val pending = if (family.adminId == userId) {
@@ -83,7 +82,6 @@ class VM_Familia(application: Application) : AndroidViewModel(application) {
         
         repository.getFamilyByUserId(userId).onSuccess { family ->
             if (family != null) {
-                // Actualizar caché local
                 val entity = Entity_Familia(
                     id = family.id,
                     name = family.name,
@@ -96,8 +94,6 @@ class VM_Familia(application: Application) : AndroidViewModel(application) {
                 )
                 familiaDao.deleteFamilia()
                 familiaDao.insertFamilia(entity)
-                
-                // El observador de loadFamilyFromCache actualizará la UI automáticamente
             } else {
                 familiaDao.deleteFamilia()
                 checkPendingRequest(userId)
@@ -123,7 +119,9 @@ class VM_Familia(application: Application) : AndroidViewModel(application) {
     fun createFamily(name: String) = viewModelScope.launch {
         val userId = auth.currentUser?.uid ?: return@launch
         _state.value = FamilyState.Loading
-        repository.createFamily(name, userId).onSuccess {
+        repository.createFamily(name, userId).onSuccess { familyId ->
+            // Al crear una familia, transferimos los datos personales a la familia
+            repoTransaccion.transferPersonalToFamily(userId, familyId)
             syncWithFirebase()
         }.onFailure {
             _state.value = FamilyState.Error(it.message ?: "Error al crear familia")
@@ -134,6 +132,8 @@ class VM_Familia(application: Application) : AndroidViewModel(application) {
         val userId = auth.currentUser?.uid ?: return@launch
         _state.value = FamilyState.Loading
         repository.joinFamilyRequest(userId, code).onSuccess {
+            // Al solicitar unirse, borramos los datos personales (según petición del usuario)
+            repoTransaccion.deletePersonalData(userId)
             syncWithFirebase()
         }.onFailure {
             _state.value = FamilyState.Error(it.message ?: "Error al unirse")
@@ -167,8 +167,11 @@ class VM_Familia(application: Application) : AndroidViewModel(application) {
     fun dissolveFamily() = viewModelScope.launch {
         val currentState = _state.value
         if (currentState is FamilyState.HasFamily && currentState.isAdmin) {
+            val familyId = currentState.family.id
             _state.value = FamilyState.Loading
-            repository.dissolveFamily(currentState.family.id).onSuccess {
+            repository.dissolveFamily(familyId).onSuccess {
+                // Al disolver la familia, borramos todos los datos de la familia
+                repoTransaccion.deleteFamilyData(familyId)
                 familiaDao.deleteFamilia()
                 syncWithFirebase()
             }.onFailure {

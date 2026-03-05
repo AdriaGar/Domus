@@ -1,12 +1,20 @@
 package com.example.domus.app
 
+import android.content.res.ColorStateList
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.CheckBox
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.AttrRes
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -21,6 +29,7 @@ import com.example.domus.data.Entity.TipoTransaccion
 import com.example.domus.data.Entity.Transaccion
 import com.example.domus.databinding.FragmentAnadirGastoBinding
 import com.google.android.material.datepicker.MaterialDatePicker
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -87,10 +96,12 @@ class F_AnadirGasto : Fragment() {
                     binding.spinnerTransferenciaA.setText(destino?.nombre ?: "", false)
                 } else {
                     for (i in 0 until binding.llParticipantesContainer.childCount) {
-                        val checkBox = binding.llParticipantesContainer.getChildAt(i) as CheckBox
+                        val row = binding.llParticipantesContainer.getChildAt(i) as LinearLayout
+                        val checkBox = row.getChildAt(0) as CheckBox
                         checkBox.isChecked = tx.participantes.contains(checkBox.tag as String)
                     }
                 }
+                actualizarCalculos()
                 actualizarEstadoUI()
             } ?: run {
                 Toast.makeText(requireContext(), "Error al cargar la transacción", Toast.LENGTH_SHORT).show()
@@ -129,18 +140,48 @@ class F_AnadirGasto : Fragment() {
                 
                 binding.llParticipantesContainer.removeAllViews()
                 usuarios.forEach { user ->
+                    val row = LinearLayout(requireContext()).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        setPadding(0, 4, 0, 4)
+                    }
+
                     val checkBox = CheckBox(requireContext()).apply {
                         text = user.nombre
                         tag = user.uid
                         isChecked = true
                         isEnabled = enModoEdicion
+                        buttonTintList = ColorStateList.valueOf(getThemeColor(com.google.android.material.R.attr.colorPrimary))
+                        setTextColor(getThemeColor(com.google.android.material.R.attr.colorOnSurface))
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                        setOnCheckedChangeListener { _, _ -> actualizarCalculos() }
                     }
-                    binding.llParticipantesContainer.addView(checkBox)
+
+                    val tvAmount = TextView(requireContext()).apply {
+                        text = "0.00 €"
+                        textSize = 16f
+                        setTextColor(getThemeColor(com.google.android.material.R.attr.colorPrimary))
+                        gravity = Gravity.END
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                    }
+
+                    row.addView(checkBox)
+                    row.addView(tvAmount)
+                    binding.llParticipantesContainer.addView(row)
                 }
                 
                 val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, usuarios.map { it.nombre })
                 binding.spinnerPagadoPor.setAdapter(adapter)
                 binding.spinnerTransferenciaA.setAdapter(adapter)
+                
+                actualizarCalculos()
             }
         }
     }
@@ -151,11 +192,55 @@ class F_AnadirGasto : Fragment() {
         binding.cardTransferencia.setOnClickListener { if (enModoEdicion) updateSelection(TipoTransaccion.TRANSFERENCIA) }
         binding.tietFecha.setOnClickListener { if (enModoEdicion) showDatePicker() }
         binding.tilFecha.setEndIconOnClickListener { if (enModoEdicion) showDatePicker() }
+        
+        binding.tietImporte.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) { actualizarCalculos() }
+        })
+
+        binding.btnEliminar.setOnClickListener {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("¿Eliminar transacción?")
+                .setMessage("Esta acción no se puede deshacer.")
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Eliminar") { _, _ ->
+                    transaccionActual?.let { tx ->
+                        viewModel.deleteTransaccion(tx)
+                        findNavController().navigateUp()
+                    }
+                }
+                .show()
+        }
+    }
+
+    private fun actualizarCalculos() {
+        val importeStr = binding.tietImporte.text.toString()
+        val importeTotal = importeStr.toDoubleOrNull() ?: 0.0
+        
+        val seleccionados = mutableListOf<TextView>()
+        for (i in 0 until binding.llParticipantesContainer.childCount) {
+            val row = binding.llParticipantesContainer.getChildAt(i) as LinearLayout
+            val cb = row.getChildAt(0) as CheckBox
+            val tv = row.getChildAt(1) as TextView
+            if (cb.isChecked) {
+                seleccionados.add(tv)
+            } else {
+                tv.text = "0.00 €"
+            }
+        }
+
+        if (seleccionados.isNotEmpty() && importeTotal > 0) {
+            val cuota = importeTotal / seleccionados.size
+            val cuotaStr = String.format("%.2f €", cuota)
+            seleccionados.forEach { it.text = cuotaStr }
+        }
     }
 
     private fun updateSelection(tipo: TipoTransaccion) {
         tipoSeleccionado = tipo
         updateUiForSelectedType()
+        actualizarCalculos()
     }
 
     private fun actualizarEstadoUI() {
@@ -167,22 +252,35 @@ class F_AnadirGasto : Fragment() {
         binding.spinnerTransferenciaA.isEnabled = isEnabled
         
         for (i in 0 until binding.llParticipantesContainer.childCount) {
-            binding.llParticipantesContainer.getChildAt(i).isEnabled = isEnabled
+            val row = binding.llParticipantesContainer.getChildAt(i) as LinearLayout
+            row.getChildAt(0).isEnabled = isEnabled
         }
 
         binding.toolbar.menu.findItem(R.id.action_save).isVisible = isEnabled
         binding.toolbar.menu.findItem(R.id.action_edit).isVisible = !isEnabled
         
+        binding.btnEliminar.visibility = if (transaccionActual != null && isEnabled) View.VISIBLE else View.GONE
+        
         updateUiForSelectedType()
     }
 
     private fun updateUiForSelectedType() {
-        val selectedColor = ContextCompat.getColor(requireContext(), R.color.card_selected_background)
-        val defaultColor = ContextCompat.getColor(requireContext(), android.R.color.white)
+        val primaryColor = getThemeColor(com.google.android.material.R.attr.colorPrimary)
+        val surfaceColor = getThemeColor(com.google.android.material.R.attr.colorSurface)
+        val onPrimaryColor = getThemeColor(com.google.android.material.R.attr.colorOnPrimary)
+        val onSurfaceColor = getThemeColor(com.google.android.material.R.attr.colorOnSurface)
 
-        binding.cardGasto.setCardBackgroundColor(if (tipoSeleccionado == TipoTransaccion.GASTO) selectedColor else defaultColor)
-        binding.cardIngreso.setCardBackgroundColor(if (tipoSeleccionado == TipoTransaccion.INGRESO) selectedColor else defaultColor)
-        binding.cardTransferencia.setCardBackgroundColor(if (tipoSeleccionado == TipoTransaccion.TRANSFERENCIA) selectedColor else defaultColor)
+        // Tarjeta Gasto
+        binding.cardGasto.setCardBackgroundColor(if (tipoSeleccionado == TipoTransaccion.GASTO) primaryColor else surfaceColor)
+        setCardContentColor(binding.cardGasto, if (tipoSeleccionado == TipoTransaccion.GASTO) onPrimaryColor else onSurfaceColor)
+
+        // Tarjeta Ingreso
+        binding.cardIngreso.setCardBackgroundColor(if (tipoSeleccionado == TipoTransaccion.INGRESO) primaryColor else surfaceColor)
+        setCardContentColor(binding.cardIngreso, if (tipoSeleccionado == TipoTransaccion.INGRESO) onPrimaryColor else onSurfaceColor)
+
+        // Tarjeta Transferencia
+        binding.cardTransferencia.setCardBackgroundColor(if (tipoSeleccionado == TipoTransaccion.TRANSFERENCIA) primaryColor else surfaceColor)
+        setCardContentColor(binding.cardTransferencia, if (tipoSeleccionado == TipoTransaccion.TRANSFERENCIA) onPrimaryColor else onSurfaceColor)
 
         when (tipoSeleccionado) {
             TipoTransaccion.GASTO, TipoTransaccion.INGRESO -> {
@@ -199,6 +297,20 @@ class F_AnadirGasto : Fragment() {
                 binding.tilTransferencia.visibility = View.VISIBLE
             }
         }
+    }
+
+    private fun setCardContentColor(card: View, color: Int) {
+        val layout = (card as ViewGroup).getChildAt(0) as ViewGroup
+        val icon = layout.getChildAt(0) as android.widget.ImageView
+        val text = layout.getChildAt(1) as TextView
+        icon.imageTintList = ColorStateList.valueOf(color)
+        text.setTextColor(color)
+    }
+
+    private fun getThemeColor(@AttrRes attrRes: Int): Int {
+        val typedValue = TypedValue()
+        requireContext().theme.resolveAttribute(attrRes, typedValue, true)
+        return typedValue.data
     }
 
     private fun guardarTransaccion() {
@@ -229,7 +341,8 @@ class F_AnadirGasto : Fragment() {
             }
         } else {
             for (i in 0 until binding.llParticipantesContainer.childCount) {
-                val cb = binding.llParticipantesContainer.getChildAt(i) as CheckBox
+                val row = binding.llParticipantesContainer.getChildAt(i) as LinearLayout
+                val cb = row.getChildAt(0) as CheckBox
                 if (cb.isChecked) {
                     participantes.add(cb.tag as String)
                 }
@@ -248,6 +361,7 @@ class F_AnadirGasto : Fragment() {
                 tipo = tipoSeleccionado.name,
                 usuarioId = pagador.uid,
                 usuarioNombre = pagador.nombre,
+                familiaId = transaccionActual?.familiaId ?: viewModel.currentFamiliaId.value,
                 participantes = participantes,
                 fecha = fechaSeleccionada
             )

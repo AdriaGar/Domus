@@ -8,7 +8,7 @@ import androidx.room.TypeConverters
 import com.example.domus.data.Entity.Entity_Familia
 import com.example.domus.data.Entity.Transaccion
 
-@Database(entities = [Transaccion::class, Entity_Familia::class], version = 3, exportSchema = false)
+@Database(entities = [Transaccion::class, Entity_Familia::class], version = 4, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class DB_Domus : RoomDatabase() {
 

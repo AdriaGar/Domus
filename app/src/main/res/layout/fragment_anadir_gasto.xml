@@ -118,8 +118,6 @@
 
             </GridLayout>
 
-
-
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/til_descripcion"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
@@ -213,6 +211,17 @@
                     android:inputType="none"/>
 
             </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_eliminar"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:layout_marginBottom="16dp"
+                android:text="Eliminar Transacción"
+                android:textColor="#F44336"
+                android:visibility="gone" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
