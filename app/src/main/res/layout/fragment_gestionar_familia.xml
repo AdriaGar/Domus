@@ -28,6 +28,7 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/tv_no_family_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="No perteneces a ninguna familia"
@@ -58,6 +59,7 @@
                     android:text="Unirse a Familia" />
 
                 <TextView
+                    android:id="@+id/tv_or_create"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
@@ -79,7 +81,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:visibility="gone"
-            app:constraint_referenced_ids="tv_family_name, tv_join_code_label, tv_join_code, rv_members, tv_members_label, btn_share_code, tv_code_timer" />
+            app:constraint_referenced_ids="tv_family_name, tv_join_code_label, tv_join_code, rv_members, tv_members_label, btn_share_code, tv_code_timer, btn_family_action" />
 
         <TextView
             android:id="@+id/tv_family_name"
@@ -183,6 +185,18 @@
             android:visibility="gone"
             app:layout_constraintTop_toBottomOf="@id/tv_pending_label"
             tools:listitem="@android:layout/simple_list_item_2" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_family_action"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="Salir de la Familia"
+            android:textColor="@android:color/holo_red_dark"
+            app:layout_constraintTop_toBottomOf="@id/rv_pending_members"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
         <ProgressBar
             android:id="@+id/progress_bar"

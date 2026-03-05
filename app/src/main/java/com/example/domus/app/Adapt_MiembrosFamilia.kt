@@ -2,6 +2,7 @@ package com.example.domus.app
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -12,7 +13,11 @@ import com.example.domus.databinding.ItemFamilyMemberBinding
 class Adapt_MiembrosFamilia(
     private var members: List<MemberInfo>,
     private val adminId: String,
-    private val onAcceptClick: ((String) -> Unit)? = null
+    private val creatorId: String,
+    private val isCurrentUserAdmin: Boolean = false,
+    private val currentUserId: String = "",
+    private val onAcceptClick: ((String) -> Unit)? = null,
+    private val onTransferAdminClick: ((String) -> Unit)? = null
 ) : RecyclerView.Adapter<Adapt_MiembrosFamilia.ViewHolder>() {
 
     class ViewHolder(val binding: ItemFamilyMemberBinding) : RecyclerView.ViewHolder(binding.root)
@@ -33,15 +38,40 @@ class Adapt_MiembrosFamilia(
                 .placeholder(R.drawable.ic_user_default)
                 .into(ivMemberAvatar)
 
-            // Mostrar el badge si es el administrador (Fundador)
-            if (member.id == adminId) {
-                tvRoleBadge.isVisible = true
-                tvRoleBadge.text = "Fundador"
-            } else {
-                tvRoleBadge.isVisible = onAcceptClick != null // Si hay callback de aceptar, es la lista de pendientes
-                if (onAcceptClick != null) {
+            // Reset visibilities
+            tvRoleBadge.isVisible = false
+            tvRoleBadge.setOnClickListener(null)
+
+            when {
+                member.id == creatorId -> {
+                    // Es el creador original
+                    tvRoleBadge.isVisible = true
+                    tvRoleBadge.text = "Fundador"
+                }
+                member.id == adminId -> {
+                    // Es el administrador actual (pero no el creador)
+                    tvRoleBadge.isVisible = true
+                    tvRoleBadge.text = "Dueño"
+                }
+                onAcceptClick != null -> {
+                    // Estamos en la lista de solicitudes pendientes
+                    tvRoleBadge.isVisible = true
                     tvRoleBadge.text = "Aceptar"
                     tvRoleBadge.setOnClickListener { onAcceptClick.invoke(member.id) }
+                }
+                isCurrentUserAdmin && member.id != currentUserId -> {
+                    // Es un miembro normal y el usuario actual es admin -> puede transferir poder
+                    tvRoleBadge.isVisible = true
+                    tvRoleBadge.text = "Gestionar"
+                    tvRoleBadge.setOnClickListener { view ->
+                        val popup = PopupMenu(view.context, view)
+                        popup.menu.add("Hacer administrador")
+                        popup.setOnMenuItemClickListener {
+                            onTransferAdminClick?.invoke(member.id)
+                            true
+                        }
+                        popup.show()
+                    }
                 }
             }
         }

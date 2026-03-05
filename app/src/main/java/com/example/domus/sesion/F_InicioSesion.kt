@@ -19,12 +19,15 @@ import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 
 class F_InicioSesion : Fragment() {
 
     private lateinit var binding: FragmentInicioSesionBinding
     private lateinit var auth: FirebaseAuth
     private lateinit var googleSignInClient: GoogleSignInClient
+    private val db = FirebaseFirestore.getInstance()
 
     private val googleSignInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
@@ -43,6 +46,7 @@ class F_InicioSesion : Fragment() {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
+            .requestProfile() // Solicitar acceso al perfil para obtener el nombre
             .build()
 
         googleSignInClient = GoogleSignIn.getClient(requireActivity(), gso)
@@ -58,12 +62,42 @@ class F_InicioSesion : Fragment() {
         auth.signInWithCredential(credential)
             .addOnCompleteListener(requireActivity()) { task ->
                 if (task.isSuccessful) {
+                    val user = auth.currentUser
+                    if (user != null) {
+                        // Al iniciar con Google, guardamos los datos del perfil en Firestore
+                        saveGoogleUserToFirestore(
+                            user.uid,
+                            user.displayName ?: "",
+                            user.email ?: "",
+                            user.photoUrl?.toString()
+                        )
+                    }
                     val intent = Intent(requireContext(), A_Applicacion::class.java)
                     startActivity(intent)
                     requireActivity().finish()
                 } else {
                     Toast.makeText(requireContext(), "No se pudo iniciar sesión con Google.", Toast.LENGTH_SHORT).show()
                 }
+            }
+    }
+
+    private fun saveGoogleUserToFirestore(userId: String, name: String, email: String, photoUrl: String?) {
+        val userDetails = mutableMapOf(
+            "email" to email
+        )
+        
+        // Solo guardamos el nombre si Firestore no tiene uno ya (para no sobreescribir si el usuario lo cambió)
+        if (name.isNotEmpty()) {
+            userDetails["nombre"] = name
+        }
+        if (photoUrl != null) {
+            userDetails["photoUrl"] = photoUrl
+        }
+
+        db.collection("users").document(userId)
+            .set(userDetails, SetOptions.merge())
+            .addOnFailureListener { e ->
+                android.util.Log.e("F_InicioSesion", "Error al guardar usuario de Google en Firestore", e)
             }
     }
 

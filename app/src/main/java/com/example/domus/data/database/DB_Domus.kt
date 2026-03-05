@@ -5,13 +5,15 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.example.domus.data.Entity.Entity_Familia
 import com.example.domus.data.Entity.Transaccion
 
-@Database(entities = [Transaccion::class], version = 2, exportSchema = false) // VERSIÓN INCREMENTADA
+@Database(entities = [Transaccion::class, Entity_Familia::class], version = 3, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class DB_Domus : RoomDatabase() {
 
     abstract fun transaccionDao(): TransaccionDao
+    abstract fun familiaDao(): FamiliaDao
 
     companion object {
         @Volatile
@@ -24,7 +26,7 @@ abstract class DB_Domus : RoomDatabase() {
                     DB_Domus::class.java,
                     "domus_db"
                 )
-                .fallbackToDestructiveMigration() // AÑADIDA ESTRATEGIA DE MIGRACIÓN
+                .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
                 instance

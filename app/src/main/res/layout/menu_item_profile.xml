@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:clipToPadding="false">
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingEnd="8dp">
+
+    <ImageView
+        android:id="@+id/iv_sync_icon"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginEnd="8dp"
+        android:src="@drawable/ic_sync"
+        android:visibility="gone" />
 
     <de.hdodenhof.circleimageview.CircleImageView
         android:id="@+id/iv_profile_image"
@@ -11,4 +21,4 @@
         android:layout_height="32dp"
         android:src="@drawable/ic_user_default" />
 
-</FrameLayout>
+</LinearLayout>

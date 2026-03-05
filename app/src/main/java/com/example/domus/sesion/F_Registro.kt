@@ -12,11 +12,14 @@ import com.example.domus.databinding.FragmentRegistroBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ActionCodeSettings
 import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 
 class F_Registro : Fragment() {
 
     private lateinit var binding: FragmentRegistroBinding
     private lateinit var auth: FirebaseAuth
+    private val db = FirebaseFirestore.getInstance()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         binding = FragmentRegistroBinding.inflate(inflater, container, false)
@@ -41,6 +44,10 @@ class F_Registro : Fragment() {
                 auth.createUserWithEmailAndPassword(email, password)
                     .addOnCompleteListener(requireActivity()) { task ->
                         if (task.isSuccessful) {
+                            val userId = auth.currentUser?.uid
+                            if (userId != null) {
+                                saveUserToFirestore(userId, nombre, apellidos, email)
+                            }
                             Toast.makeText(requireContext(), "Cuenta creada con éxito.", Toast.LENGTH_SHORT).show()
                             findNavController().navigate(R.id.action_f_Registro_to_f_InicioSesion)
                         } else {
@@ -53,16 +60,20 @@ class F_Registro : Fragment() {
         binding.tvIrLogin.setOnClickListener {
             findNavController().navigate(R.id.action_f_Registro_to_f_InicioSesion)
         }
+    }
 
-        // DEBERAS AÑADIR ESTE BOTON EN TU LAYOUT
-        // binding.btnEnviarEnlace.setOnClickListener {
-        //     val email = binding.tietEmailReg.text.toString().trim()
-        //     if (email.isNotEmpty()) {
-        //         sendPasswordlessSignInLink(email)
-        //     } else {
-        //         binding.tilEmailReg.error = "Introduce tu correo electrónico"
-        //     }
-        // }
+    private fun saveUserToFirestore(userId: String, nombre: String, apellidos: String, email: String) {
+        val userDetails = hashMapOf(
+            "nombre" to nombre,
+            "apellidos" to apellidos,
+            "email" to email
+        )
+        
+        db.collection("users").document(userId)
+            .set(userDetails, SetOptions.merge())
+            .addOnFailureListener { e ->
+                android.util.Log.e("F_Registro", "Error al guardar usuario en Firestore", e)
+            }
     }
 
     private fun handleRegistrationError(exception: Exception?) {
@@ -73,26 +84,6 @@ class F_Registro : Fragment() {
             else -> "No se pudo completar el registro. Inténtalo de nuevo."
         }
         Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show()
-    }
-
-    private fun sendPasswordlessSignInLink(email: String) {
-        val actionCodeSettings = ActionCodeSettings.newBuilder()
-            .setUrl("https://domus-f991c.firebaseapp.com") // URL de tu app para continuar el flujo
-            .setHandleCodeInApp(true)
-            .setAndroidPackageName(
-                requireContext().packageName,
-                true, /* installIfNotAvailable */
-                null /* minimumVersion */)
-            .build()
-
-        auth.sendSignInLinkToEmail(email, actionCodeSettings)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    Toast.makeText(requireContext(), "Enlace de inicio de sesión enviado a tu correo.", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(requireContext(), "Error al enviar el enlace: ${'$'}{task.exception?.message}", Toast.LENGTH_LONG).show()
-                }
-            }
     }
 
     private fun validateInput(nombre: String, apellidos: String, email: String, pass: String, confirmPass: String): Boolean {

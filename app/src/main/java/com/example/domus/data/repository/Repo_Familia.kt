@@ -2,6 +2,7 @@ package com.example.domus.data.repository
 
 import com.example.domus.data.model.Family
 import com.google.firebase.firestore.FieldPath
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
@@ -28,6 +29,7 @@ class Repo_Familia {
                 id = familyId,
                 name = name,
                 adminId = adminId,
+                creatorId = adminId,
                 joinCode = "", // No code initially
                 codeCreatedAt = 0L,
                 members = listOf(adminId)
@@ -78,8 +80,32 @@ class Repo_Familia {
                 return Result.failure(Exception("Ya estás en la familia o tienes una solicitud pendiente"))
             }
 
-            familiesCollection.document(family.id).update("pendingMembers", family.pendingMembers + userId).await()
+            familiesCollection.document(family.id).update("pendingMembers", FieldValue.arrayUnion(userId)).await()
             Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun cancelJoinRequest(userId: String): Result<Unit> {
+        return try {
+            val query = familiesCollection.whereArrayContains("pendingMembers", userId).get().await()
+            if (query.isEmpty) return Result.success(Unit)
+            
+            for (doc in query.documents) {
+                familiesCollection.document(doc.id).update("pendingMembers", FieldValue.arrayRemove(userId)).await()
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getPendingFamilyRequest(userId: String): Result<Family?> {
+        return try {
+            val query = familiesCollection.whereArrayContains("pendingMembers", userId).get().await()
+            if (query.isEmpty) return Result.success(null)
+            Result.success(query.documents[0].toObject(Family::class.java))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -87,18 +113,51 @@ class Repo_Familia {
 
     suspend fun acceptMember(familyId: String, userId: String): Result<Unit> {
         return try {
-            val familyDoc = familiesCollection.document(familyId).get().await()
-            val members = familyDoc.get("members") as? List<String> ?: emptyList()
-            val pendingMembers = familyDoc.get("pendingMembers") as? List<String> ?: emptyList()
-
             familiesCollection.document(familyId).update(
-                "members", members + userId,
-                "pendingMembers", pendingMembers - userId
+                "members", FieldValue.arrayUnion(userId),
+                "pendingMembers", FieldValue.arrayRemove(userId)
             ).await()
             
             val userData = mapOf("familyId" to familyId)
             usersCollection.document(userId).set(userData, SetOptions.merge()).await()
             
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun leaveFamily(userId: String, familyId: String): Result<Unit> {
+        return try {
+            familiesCollection.document(familyId).update("members", FieldValue.arrayRemove(userId)).await()
+            usersCollection.document(userId).update("familyId", FieldValue.delete()).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun dissolveFamily(familyId: String): Result<Unit> {
+        return try {
+            val familyDoc = familiesCollection.document(familyId).get().await()
+            val members = familyDoc.get("members") as? List<String> ?: emptyList()
+            
+            db.runTransaction { transaction ->
+                members.forEach { memberId ->
+                    transaction.update(usersCollection.document(memberId), "familyId", FieldValue.delete())
+                }
+                transaction.delete(familiesCollection.document(familyId))
+            }.await()
+            
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun transferAdmin(familyId: String, newAdminId: String): Result<Unit> {
+        return try {
+            familiesCollection.document(familyId).update("adminId", newAdminId).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -123,10 +182,13 @@ class Repo_Familia {
         return try {
             val query = usersCollection.whereIn(FieldPath.documentId(), userIds).get().await()
             query.documents.mapNotNull { doc ->
+                val email = doc.getString("email") ?: doc.getString("Email") ?: ""
+                val defaultName = if (email.contains("@")) email.substringBefore("@") else "Usuario"
+                
                 MemberInfo(
                     id = doc.id,
-                    nombre = doc.getString("nombre") ?: doc.getString("Nombre") ?: "Usuario",
-                    email = doc.getString("email") ?: doc.getString("Email") ?: "",
+                    nombre = doc.getString("nombre") ?: doc.getString("Nombre") ?: defaultName,
+                    email = email,
                     photoUrl = doc.getString("photoUrl")
                 )
             }
