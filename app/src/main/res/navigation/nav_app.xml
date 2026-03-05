@@ -8,21 +8,42 @@
     <fragment
         android:id="@+id/f_Cuentas"
         android:name="com.example.domus.app.F_Cuentas"
-        android:label="fragment_cuentas"
-        tools:layout="@layout/fragment_cuentas" />
+        android:label="Cuentas"
+        tools:layout="@layout/fragment_cuentas">
+        <action
+            android:id="@+id/action_f_Cuentas_to_f_AnadirGasto"
+            app:destination="@id/f_AnadirGasto" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/f_AnadirGasto"
+        android:name="com.example.domus.app.F_AnadirGasto"
+        android:label="{title}"
+        tools:layout="@layout/fragment_anadir_gasto">
+        <argument
+            android:name="transaccionId"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+        <argument
+            android:name="title"
+            app:argType="string"
+            android:defaultValue="Nueva Transacción" />
+    </fragment>
+
     <fragment
         android:id="@+id/f_ListaCompra"
         android:name="com.example.domus.app.F_ListaCompra"
-        android:label="fragment_lista_compra"
+        android:label="Lista de la Compra"
         tools:layout="@layout/fragment_lista_compra" />
     <fragment
         android:id="@+id/f_Tareas"
         android:name="com.example.domus.app.F_Tareas"
-        android:label="fragment_tareas"
+        android:label="Tareas"
         tools:layout="@layout/fragment_tareas" />
     <fragment
         android:id="@+id/f_StockCocina"
         android:name="com.example.domus.app.F_StockCocina"
-        android:label="fragment_stock_cocina"
+        android:label="Stock de Cocina"
         tools:layout="@layout/fragment_stock_cocina" />
 </navigation>

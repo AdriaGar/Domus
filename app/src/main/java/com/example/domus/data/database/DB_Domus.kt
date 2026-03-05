@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.example.domus.data.Entity.Transaccion
 
-@Database(entities = [Transaccion::class], version = 1, exportSchema = false)
+@Database(entities = [Transaccion::class], version = 2, exportSchema = false) // VERSIÓN INCREMENTADA
 @TypeConverters(Converters::class)
 abstract class DB_Domus : RoomDatabase() {
 
@@ -23,7 +23,9 @@ abstract class DB_Domus : RoomDatabase() {
                     context.applicationContext,
                     DB_Domus::class.java,
                     "domus_db"
-                ).build()
+                )
+                .fallbackToDestructiveMigration() // AÑADIDA ESTRATEGIA DE MIGRACIÓN
+                .build()
                 INSTANCE = instance
                 instance
             }

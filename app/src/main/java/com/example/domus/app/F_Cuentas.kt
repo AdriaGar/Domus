@@ -7,7 +7,9 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.domus.R
 import com.example.domus.app.viewModel.CuentasViewModelFactory
 import com.example.domus.app.viewModel.VM_Cuentas
 import com.example.domus.data.Entity.TipoTransaccion
@@ -20,7 +22,6 @@ class F_Cuentas : Fragment() {
     private var _binding: FragmentCuentasBinding? = null
     private val binding get() = _binding!!
 
-    // Usamos activityViewModels para compartir el ViewModel con F_AnadirGasto
     private val viewModel: VM_Cuentas by activityViewModels {
         CuentasViewModelFactory(requireActivity().application)
     }
@@ -53,24 +54,21 @@ class F_Cuentas : Fragment() {
 
     private fun setupFab() {
         binding.fabAddTransaccion.setOnClickListener {
-            // Muestra el diálogo para añadir un nuevo gasto
-            F_AnadirGasto().show(parentFragmentManager, "AnadirGastoDialog")
+            // Navegar al nuevo fragmento de pantalla completa
+            findNavController().navigate(R.id.action_f_Cuentas_to_f_AnadirGasto)
         }
     }
 
     private fun observeViewModel() {
-        // Usamos viewLifecycleOwner.lifecycleScope para que la corutina se cancele automáticamente
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.allTransacciones.collectLatest { transacciones ->
-                // Cuando llegan nuevas transacciones, las enviamos al adaptador
                 transaccionAdapter.submitList(transacciones)
 
-                // Calculamos y mostramos el balance total correctamente
                 val balance = transacciones.sumOf { 
                     when (it.tipo) {
                         TipoTransaccion.INGRESO.name -> it.cantidad
                         TipoTransaccion.GASTO.name -> -it.cantidad
-                        else -> 0.0 // Las transferencias no afectan al balance total
+                        else -> 0.0
                     }
                 }
                 binding.tvBalance.text = String.format("%.2f €", balance)

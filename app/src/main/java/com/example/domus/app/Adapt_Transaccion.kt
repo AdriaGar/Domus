@@ -4,10 +4,12 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import androidx.navigation.findNavController
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.domus.R
+import com.example.domus.app.F_CuentasDirections
 import com.example.domus.data.Entity.TipoTransaccion
 import com.example.domus.data.Entity.Transaccion
 import com.example.domus.databinding.ItemTransaccionBinding
@@ -21,6 +23,10 @@ class Adapt_Transaccion : ListAdapter<Transaccion, Adapt_Transaccion.Transaccion
 
     override fun onBindViewHolder(holder: TransaccionViewHolder, position: Int) {
         val transaccion = getItem(position)
+        holder.itemView.setOnClickListener {
+            val action = F_CuentasDirections.actionFCuentasToFAnadirGasto(transaccion.id, "Detalle de Transacción")
+            it.findNavController().navigate(action)
+        }
         holder.bind(transaccion)
     }
 
@@ -35,7 +41,6 @@ class Adapt_Transaccion : ListAdapter<Transaccion, Adapt_Transaccion.Transaccion
                     binding.tvCantidad.text = String.format("-%.2f €", transaccion.cantidad)
                     binding.tvCantidad.setTextColor(ContextCompat.getColor(context, R.color.importe_gasto))
                     
-                    // Mostrar participantes solo en gastos
                     if (transaccion.participantes.isNotEmpty()) {
                         binding.tvParticipantes.visibility = View.VISIBLE
                         binding.tvParticipantes.text = "(entre ${transaccion.participantes.size} personas)"
@@ -46,12 +51,12 @@ class Adapt_Transaccion : ListAdapter<Transaccion, Adapt_Transaccion.Transaccion
                 TipoTransaccion.INGRESO.name -> {
                     binding.tvCantidad.text = String.format("+%.2f €", transaccion.cantidad)
                     binding.tvCantidad.setTextColor(ContextCompat.getColor(context, R.color.importe_ingreso))
-                    binding.tvParticipantes.visibility = View.GONE // Ocultar para ingresos
+                    binding.tvParticipantes.visibility = View.GONE
                 }
                 TipoTransaccion.TRANSFERENCIA.name -> {
                     binding.tvCantidad.text = String.format("%.2f €", transaccion.cantidad)
                     binding.tvCantidad.setTextColor(ContextCompat.getColor(context, R.color.importe_transferencia))
-                    binding.tvParticipantes.visibility = View.GONE // Ocultar para transferencias
+                    binding.tvParticipantes.visibility = View.GONE
                 }
             }
         }

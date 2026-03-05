@@ -31,16 +31,11 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
     }
 
     suspend fun addTransaccion(transaccion: Transaccion) {
-        val user = auth.currentUser
-        if (user != null) {
+        if (auth.currentUser != null) {
             try {
                 Log.d(TAG, "Añadiendo transacción a Firestore: $transaccion")
                 val documentReference = transaccionesCollection.document()
-                val transaccionConId = transaccion.copy(
-                    id = documentReference.id,
-                    usuarioId = user.uid,
-                    usuarioNombre = user.displayName ?: "Sin nombre"
-                )
+                val transaccionConId = transaccion.copy(id = documentReference.id)
                 documentReference.set(transaccionConId).await()
                 Log.d(TAG, "Transacción añadida a Firestore con éxito. ID: ${documentReference.id}")
             } catch (e: Exception) {
@@ -48,6 +43,19 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
             }
         } else {
             Log.w(TAG, "No se puede añadir transacción, usuario no autenticado")
+        }
+    }
+
+    suspend fun updateTransaccion(transaccion: Transaccion) {
+        if (auth.currentUser != null && transaccion.id.isNotEmpty()) {
+            try {
+                Log.d(TAG, "Actualizando transacción en Firestore: ${transaccion.id}")
+                // Usamos el ID existente para sobrescribir el documento en Firestore
+                transaccionesCollection.document(transaccion.id).set(transaccion).await()
+                Log.d(TAG, "Transacción actualizada con éxito.")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error al actualizar la transacción en Firestore", e)
+            }
         }
     }
 

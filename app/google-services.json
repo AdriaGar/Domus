@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "683199170405",
+    "project_id": "domus-f991c",
+    "storage_bucket": "domus-f991c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:683199170405:android:d2b3e09bd91a131b0b038c",
+        "android_client_info": {
+          "package_name": "com.example.domus"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "683199170405-g4fdlmrdksc16u9dkuumdfrk435dgcl2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.domus",
+            "certificate_hash": "bb8d551ef20d71318042052e18b343000cebb0dd"
+          }
+        },
+        {
+          "client_id": "683199170405-fps07oljg9dfk9iae01fi6sl8lill4p9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDzD8J9QH9u7RdYmIkKn8U-i8e_GlNi7so"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "683199170405-fps07oljg9dfk9iae01fi6sl8lill4p9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

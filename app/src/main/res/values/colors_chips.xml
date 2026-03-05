@@ -30,5 +30,8 @@
     <color name="importe_gasto">#D32F2F</color>
     <color name="importe_ingreso">#388E3C</color>
     <color name="importe_transferencia">#1976D2</color>
+    
+    <!-- Color para resaltar la tarjeta seleccionada -->
+    <color name="card_selected_background">#F0F0F0</color>
 
 </resources>

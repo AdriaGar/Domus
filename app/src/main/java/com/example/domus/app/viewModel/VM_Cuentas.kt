@@ -11,6 +11,7 @@ import com.example.domus.data.repository.Repo_Transaccion
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 // Clase de datos simple para representar a un usuario en la UI
@@ -24,7 +25,6 @@ class VM_Cuentas(private val repository: Repo_Transaccion) : ViewModel() {
     val allTransacciones: Flow<List<Transaccion>> = repository.allTransacciones
 
     // --- GESTIÓN DE USUARIOS (SIMULADA) ---
-    // En un futuro, esta lista vendría de un Repo_Usuario que la obtendría de Firestore.
     private val _users = MutableStateFlow<List<User>>(emptyList())
     val users: Flow<List<User>> = _users.asStateFlow()
 
@@ -33,7 +33,6 @@ class VM_Cuentas(private val repository: Repo_Transaccion) : ViewModel() {
     }
 
     private fun loadUsers() {
-        // SIMULACIÓN: Aquí estamos usando una lista fija. En el futuro, la obtendrías de Firestore.
         _users.value = listOf(
             User("uid_juan", "Juan"),
             User("uid_ana", "Ana"),
@@ -42,9 +41,18 @@ class VM_Cuentas(private val repository: Repo_Transaccion) : ViewModel() {
     }
     // --- FIN DE LA GESTIÓN DE USUARIOS ---
 
+    suspend fun getTransaccionById(id: String): Transaccion? {
+        return allTransacciones.firstOrNull()?.find { it.id == id }
+    }
+
     fun addTransaccion(transaccion: Transaccion) = viewModelScope.launch {
         Log.d(TAG, "Función addTransaccion en VM_Cuentas. Pasando al repositorio...")
         repository.addTransaccion(transaccion)
+    }
+
+    fun updateTransaccion(transaccion: Transaccion) = viewModelScope.launch {
+        Log.d(TAG, "Función updateTransaccion en VM_Cuentas. Pasando al repositorio...")
+        repository.updateTransaccion(transaccion)
     }
 }
 
