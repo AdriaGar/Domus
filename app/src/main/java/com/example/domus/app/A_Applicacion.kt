@@ -6,6 +6,8 @@ import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.PopupMenu
+import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.bumptech.glide.Glide
@@ -24,6 +26,7 @@ class A_Applicacion : AppCompatActivity() {
     private lateinit var binding: ActivityApplicacionBinding
     private lateinit var auth: FirebaseAuth
     private lateinit var googleSignInClient: GoogleSignInClient
+    private lateinit var navController: NavController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,7 +46,7 @@ class A_Applicacion : AppCompatActivity() {
 
         val navHostFragment = supportFragmentManager
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
-        val navController = navHostFragment.navController
+        navController = navHostFragment.navController
 
         binding.bottomNavView.setupWithNavController(navController)
     }
@@ -64,19 +67,38 @@ class A_Applicacion : AppCompatActivity() {
                 .placeholder(R.drawable.ic_user_default)
                 .error(R.drawable.ic_user_default)
                 .into(profileImageView)
-        }
-
-        actionView?.setOnClickListener {
-            onOptionsItemSelected(profileMenuItem!!)
+            
+            actionView.setOnClickListener {
+                showProfileMenu(actionView)
+            }
         }
 
         return true
     }
 
+    private fun showProfileMenu(view: android.view.View) {
+        val popup = PopupMenu(this, view)
+        popup.menuInflater.inflate(R.menu.profile_menu, popup.menu)
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.action_manage_family -> {
+                    navController.navigate(R.id.f_GestionarFamilia)
+                    true
+                }
+                R.id.action_sign_out -> {
+                    showSignOutDialog()
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.menu_user_profile -> {
-                showSignOutDialog()
+                // El clic ya se maneja en el actionView.setOnClickListener en onCreateOptionsMenu
                 true
             }
             else -> super.onOptionsItemSelected(item)

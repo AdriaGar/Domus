@@ -46,4 +46,9 @@
         android:name="com.example.domus.app.F_StockCocina"
         android:label="Stock de Cocina"
         tools:layout="@layout/fragment_stock_cocina" />
+    <fragment
+        android:id="@+id/f_GestionarFamilia"
+        android:name="com.example.domus.app.F_GestionarFamilia"
+        android:label="Gestionar Familia"
+        tools:layout="@layout/fragment_gestionar_familia" />
 </navigation>
