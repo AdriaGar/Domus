@@ -10,6 +10,8 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.signature.ObjectKey
 import com.example.domus.R
 import com.example.domus.app.viewModel.User
 import com.example.domus.data.Entity.TipoTransaccion
@@ -52,10 +54,13 @@ class Adapt_Transaccion : ListAdapter<Transaccion, Adapt_Transaccion.Transaccion
             binding.tvDescripcion.text = transaccion.descripcion
             binding.tvUsuario.text = "Pagado por ${formatName(transaccion.usuarioNombre)}"
 
-            // Buscar la foto del usuario pagador
+            // Buscar la foto del usuario pagador e invalidar caché con lastUpdated
             val payer = allUsers.find { it.uid == transaccion.usuarioId }
             Glide.with(context)
                 .load(payer?.photoUrl)
+                // Usamos la marca de tiempo para forzar el refresco si la imagen cambió en Google
+                .signature(ObjectKey(payer?.lastUpdated ?: 0L))
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .placeholder(R.drawable.ic_user_default)
                 .error(R.drawable.ic_user_default)
                 .into(binding.ivUsuarioPagador)
@@ -70,14 +75,12 @@ class Adapt_Transaccion : ListAdapter<Transaccion, Adapt_Transaccion.Transaccion
                     if (transaccion.participantes.isNotEmpty()) {
                         binding.llParticipantesFotos.visibility = View.VISIBLE
                         
-                        // Añadir fotos de los participantes amontonadas
                         val participantesAMostrar = transaccion.participantes.take(4)
                         participantesAMostrar.forEachIndexed { index, userId ->
                             val user = allUsers.find { it.uid == userId }
                             val imageView = CircleImageView(context).apply {
                                 val size = (20 * context.resources.displayMetrics.density).toInt()
                                 layoutParams = LinearLayout.LayoutParams(size, size).apply {
-                                    // NO aplicamos margen negativo al último elemento para evitar que se corte a la derecha
                                     if (index < participantesAMostrar.size - 1) {
                                         marginEnd = (-6 * context.resources.displayMetrics.density).toInt()
                                     }
@@ -88,8 +91,8 @@ class Adapt_Transaccion : ListAdapter<Transaccion, Adapt_Transaccion.Transaccion
                             
                             Glide.with(context)
                                 .load(user?.photoUrl)
+                                .signature(ObjectKey(user?.lastUpdated ?: 0L))
                                 .placeholder(R.drawable.ic_user_default)
-                                .error(R.drawable.ic_user_default)
                                 .into(imageView)
                             
                             binding.llParticipantesFotos.addView(imageView)
@@ -121,8 +124,8 @@ class Adapt_Transaccion : ListAdapter<Transaccion, Adapt_Transaccion.Transaccion
                         
                         Glide.with(context)
                             .load(targetUser?.photoUrl)
+                            .signature(ObjectKey(targetUser?.lastUpdated ?: 0L))
                             .placeholder(R.drawable.ic_user_default)
-                            .error(R.drawable.ic_user_default)
                             .into(imageView)
                         
                         binding.llParticipantesFotos.addView(imageView)

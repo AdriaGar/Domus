@@ -224,6 +224,7 @@ class F_Cuentas : Fragment() {
         val creditor = users.find { it.uid == debt.creditorId }
         val creditorName = if (creditor != null) formatName(creditor.nombre) else "Alguien"
         
+        val familiaId = viewModel.currentFamiliaId.value
         val transaccion = Transaccion(
             descripcion = "Abono de deuda a $creditorName",
             cantidad = debt.amount,
@@ -232,10 +233,10 @@ class F_Cuentas : Fragment() {
             usuarioNombre = currentUser?.nombre ?: "Yo",
             participantes = listOf(debt.creditorId),
             fecha = Date(),
-            familiaId = viewModel.currentFamiliaId.value
+            familiaId = familiaId
         )
         
-        viewModel.addTransaccion(transaccion)
+        viewModel.addTransaccion(transaccion, familiaId)
         Toast.makeText(requireContext(), "Abonando ${String.format("%.2f €", debt.amount)}", Toast.LENGTH_SHORT).show()
     }
 

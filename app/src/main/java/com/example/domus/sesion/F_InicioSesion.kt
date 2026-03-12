@@ -46,7 +46,7 @@ class F_InicioSesion : Fragment() {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
-            .requestProfile() // Solicitar acceso al perfil para obtener el nombre
+            .requestProfile()
             .build()
 
         googleSignInClient = GoogleSignIn.getClient(requireActivity(), gso)
@@ -64,7 +64,7 @@ class F_InicioSesion : Fragment() {
                 if (task.isSuccessful) {
                     val user = auth.currentUser
                     if (user != null) {
-                        // Al iniciar con Google, guardamos los datos del perfil en Firestore
+                        // Actualizamos los datos (incluida la foto) en cada inicio de sesión
                         saveGoogleUserToFirestore(
                             user.uid,
                             user.displayName ?: "",
@@ -82,22 +82,24 @@ class F_InicioSesion : Fragment() {
     }
 
     private fun saveGoogleUserToFirestore(userId: String, name: String, email: String, photoUrl: String?) {
-        val userDetails = mutableMapOf(
+        val userDetails = mutableMapOf<String, Any>(
             "email" to email
         )
         
-        // Solo guardamos el nombre si Firestore no tiene uno ya (para no sobreescribir si el usuario lo cambió)
-        if (name.isNotEmpty()) {
-            userDetails["nombre"] = name
-        }
+        // Actualizamos siempre la URL de la foto para reflejar cambios en la cuenta de Google
         if (photoUrl != null) {
             userDetails["photoUrl"] = photoUrl
+        }
+        
+        // El nombre solo lo ponemos si no existe o si queremos forzar la actualización
+        if (name.isNotEmpty()) {
+            userDetails["nombre"] = name
         }
 
         db.collection("users").document(userId)
             .set(userDetails, SetOptions.merge())
             .addOnFailureListener { e ->
-                android.util.Log.e("F_InicioSesion", "Error al guardar usuario de Google en Firestore", e)
+                android.util.Log.e("F_InicioSesion", "Error al actualizar usuario en Firestore", e)
             }
     }
 
@@ -106,7 +108,7 @@ class F_InicioSesion : Fragment() {
         val emailLink = intent.data.toString()
 
         if (auth.isSignInWithEmailLink(emailLink)) {
-            val email = "USER_EMAIL" // NECESITARAS UNA FORMA DE OBTENER EL EMAIL
+            val email = "USER_EMAIL" 
             auth.signInWithEmailLink(email, emailLink)
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
@@ -134,7 +136,7 @@ class F_InicioSesion : Fragment() {
                         if (task.isSuccessful) {
                             val intent = Intent(requireContext(), A_Applicacion::class.java)
                             startActivity(intent)
-                            requireActivity().finish() // Finaliza la actividad de sesión
+                            requireActivity().finish()
                         } else {
                             handleSignInError(task.exception)
                         }
@@ -143,8 +145,11 @@ class F_InicioSesion : Fragment() {
         }
 
         binding.btnGoogleSignIn.setOnClickListener {
-            val signInIntent = googleSignInClient.signInIntent
-            googleSignInLauncher.launch(signInIntent)
+            // Cerramos sesión de Google antes para forzar la selección de cuenta y refrescar el perfil
+            googleSignInClient.signOut().addOnCompleteListener {
+                val signInIntent = googleSignInClient.signInIntent
+                googleSignInLauncher.launch(signInIntent)
+            }
         }
 
         binding.tvIrRegistro.setOnClickListener {

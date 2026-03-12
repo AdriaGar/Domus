@@ -10,7 +10,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -21,6 +20,9 @@ import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.signature.ObjectKey
 import com.example.domus.R
 import com.example.domus.app.viewModel.CuentasViewModelFactory
 import com.example.domus.app.viewModel.User
@@ -28,8 +30,10 @@ import com.example.domus.app.viewModel.VM_Cuentas
 import com.example.domus.data.Entity.TipoTransaccion
 import com.example.domus.data.Entity.Transaccion
 import com.example.domus.databinding.FragmentAnadirGastoBinding
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -53,6 +57,7 @@ class F_AnadirGasto : Fragment() {
     private var fechaSeleccionada: Date = Date()
     private var tipoSeleccionado = TipoTransaccion.GASTO
     private var usuarios: List<User> = emptyList()
+    private val seleccionadosIds = mutableSetOf<String>()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentAnadirGastoBinding.inflate(inflater, container, false)
@@ -66,9 +71,10 @@ class F_AnadirGasto : Fragment() {
         setupListeners()
         observeUsers()
 
-        if (args.transaccionId != null && args.transaccionId != "null") {
+        val txId = if (args.transaccionId != null && args.transaccionId != "null") args.transaccionId else null
+        if (txId != null) {
             enModoEdicion = false
-            loadTransaccionData(args.transaccionId!!)
+            loadTransaccionData(txId)
         } else {
             enModoEdicion = true
             setupInitialState()
@@ -90,17 +96,15 @@ class F_AnadirGasto : Fragment() {
                 val pagador = usuarios.find { it.uid == tx.usuarioId }
                 binding.spinnerPagadoPor.setText(pagador?.nombre ?: "", false)
 
+                seleccionadosIds.clear()
+                seleccionadosIds.addAll(tx.participantes)
+                
                 if (tipoSeleccionado == TipoTransaccion.TRANSFERENCIA) {
                     val destinoId = tx.participantes.firstOrNull()
                     val destino = usuarios.find { it.uid == destinoId }
                     binding.spinnerTransferenciaA.setText(destino?.nombre ?: "", false)
-                } else {
-                    for (i in 0 until binding.llParticipantesContainer.childCount) {
-                        val row = binding.llParticipantesContainer.getChildAt(i) as LinearLayout
-                        val checkBox = row.getChildAt(0) as CheckBox
-                        checkBox.isChecked = tx.participantes.contains(checkBox.tag as String)
-                    }
                 }
+                
                 actualizarCalculos()
                 actualizarEstadoUI()
             } ?: run {
@@ -137,45 +141,10 @@ class F_AnadirGasto : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.users.collectLatest { userList ->
                 usuarios = userList
-                
-                binding.llParticipantesContainer.removeAllViews()
-                usuarios.forEach { user ->
-                    val row = LinearLayout(requireContext()).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        layoutParams = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT
-                        )
-                        setPadding(0, 4, 0, 4)
-                    }
-
-                    val checkBox = CheckBox(requireContext()).apply {
-                        text = user.nombre
-                        tag = user.uid
-                        isChecked = true
-                        isEnabled = enModoEdicion
-                        buttonTintList = ColorStateList.valueOf(getThemeColor(com.google.android.material.R.attr.colorPrimary))
-                        setTextColor(getThemeColor(com.google.android.material.R.attr.colorOnSurface))
-                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                        setOnCheckedChangeListener { _, _ -> actualizarCalculos() }
-                    }
-
-                    val tvAmount = TextView(requireContext()).apply {
-                        text = "0.00 €"
-                        textSize = 16f
-                        setTextColor(getThemeColor(com.google.android.material.R.attr.colorPrimary))
-                        gravity = Gravity.END
-                        layoutParams = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT
-                        )
-                    }
-
-                    row.addView(checkBox)
-                    row.addView(tvAmount)
-                    binding.llParticipantesContainer.addView(row)
+                if (seleccionadosIds.isEmpty()) {
+                    seleccionadosIds.addAll(usuarios.map { it.uid })
                 }
+                renderUserSelectionList()
                 
                 val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, usuarios.map { it.nombre })
                 binding.spinnerPagadoPor.setAdapter(adapter)
@@ -184,6 +153,53 @@ class F_AnadirGasto : Fragment() {
                 actualizarCalculos()
             }
         }
+    }
+
+    private fun renderUserSelectionList() {
+        binding.llParticipantesContainer.removeAllViews()
+        usuarios.forEach { user ->
+            val userRow = LayoutInflater.from(requireContext()).inflate(R.layout.item_user_selection, binding.llParticipantesContainer, false)
+            val card = userRow.findViewById<MaterialCardView>(R.id.card_user)
+            val ivPhoto = userRow.findViewById<CircleImageView>(R.id.iv_user_photo)
+            val tvName = userRow.findViewById<TextView>(R.id.tv_user_name)
+            val tvAmount = userRow.findViewById<TextView>(R.id.tv_user_amount)
+
+            tvName.text = user.nombre
+            
+            // Usamos signature con lastUpdated para forzar el refresco de la foto
+            Glide.with(this)
+                .load(user.photoUrl)
+                .signature(ObjectKey(user.lastUpdated))
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .placeholder(R.drawable.ic_user_default)
+                .into(ivPhoto)
+
+            updateRowVisualState(card, tvAmount, user.uid)
+
+            userRow.setOnClickListener {
+                if (!enModoEdicion) return@setOnClickListener
+                if (seleccionadosIds.contains(user.uid)) {
+                    seleccionadosIds.remove(user.uid)
+                } else {
+                    seleccionadosIds.add(user.uid)
+                }
+                updateRowVisualState(card, tvAmount, user.uid)
+                actualizarCalculos()
+            }
+
+            userRow.tag = user.uid
+            binding.llParticipantesContainer.addView(userRow)
+        }
+    }
+
+    private fun updateRowVisualState(card: MaterialCardView, tvAmount: TextView, userId: String) {
+        val isSelected = seleccionadosIds.contains(userId)
+        val primaryColor = getThemeColor(com.google.android.material.R.attr.colorPrimary)
+        
+        card.strokeWidth = if (isSelected) (2 * resources.displayMetrics.density).toInt() else 0
+        card.strokeColor = primaryColor
+        card.alpha = if (isSelected) 1.0f else 0.6f
+        tvAmount.visibility = if (isSelected) View.VISIBLE else View.INVISIBLE
     }
 
     private fun setupListeners() {
@@ -218,22 +234,19 @@ class F_AnadirGasto : Fragment() {
         val importeStr = binding.tietImporte.text.toString()
         val importeTotal = importeStr.toDoubleOrNull() ?: 0.0
         
-        val seleccionados = mutableListOf<TextView>()
-        for (i in 0 until binding.llParticipantesContainer.childCount) {
-            val row = binding.llParticipantesContainer.getChildAt(i) as LinearLayout
-            val cb = row.getChildAt(0) as CheckBox
-            val tv = row.getChildAt(1) as TextView
-            if (cb.isChecked) {
-                seleccionados.add(tv)
-            } else {
-                tv.text = "0.00 €"
-            }
-        }
+        val count = seleccionadosIds.size
+        val cuota = if (count > 0) importeTotal / count else 0.0
+        val cuotaStr = String.format("%.2f €", cuota)
 
-        if (seleccionados.isNotEmpty() && importeTotal > 0) {
-            val cuota = importeTotal / seleccionados.size
-            val cuotaStr = String.format("%.2f €", cuota)
-            seleccionados.forEach { it.text = cuotaStr }
+        for (i in 0 until binding.llParticipantesContainer.childCount) {
+            val view = binding.llParticipantesContainer.getChildAt(i)
+            val userId = view.tag as String
+            val tvAmount = view.findViewById<TextView>(R.id.tv_user_amount)
+            if (seleccionadosIds.contains(userId)) {
+                tvAmount.text = cuotaStr
+            } else {
+                tvAmount.text = "0.00 €"
+            }
         }
     }
 
@@ -251,10 +264,7 @@ class F_AnadirGasto : Fragment() {
         binding.spinnerPagadoPor.isEnabled = isEnabled
         binding.spinnerTransferenciaA.isEnabled = isEnabled
         
-        for (i in 0 until binding.llParticipantesContainer.childCount) {
-            val row = binding.llParticipantesContainer.getChildAt(i) as LinearLayout
-            row.getChildAt(0).isEnabled = isEnabled
-        }
+        renderUserSelectionList() 
 
         binding.toolbar.menu.findItem(R.id.action_save).isVisible = isEnabled
         binding.toolbar.menu.findItem(R.id.action_edit).isVisible = !isEnabled
@@ -270,15 +280,12 @@ class F_AnadirGasto : Fragment() {
         val onPrimaryColor = getThemeColor(com.google.android.material.R.attr.colorOnPrimary)
         val onSurfaceColor = getThemeColor(com.google.android.material.R.attr.colorOnSurface)
 
-        // Tarjeta Gasto
         binding.cardGasto.setCardBackgroundColor(if (tipoSeleccionado == TipoTransaccion.GASTO) primaryColor else surfaceColor)
         setCardContentColor(binding.cardGasto, if (tipoSeleccionado == TipoTransaccion.GASTO) onPrimaryColor else onSurfaceColor)
 
-        // Tarjeta Ingreso
         binding.cardIngreso.setCardBackgroundColor(if (tipoSeleccionado == TipoTransaccion.INGRESO) primaryColor else surfaceColor)
         setCardContentColor(binding.cardIngreso, if (tipoSeleccionado == TipoTransaccion.INGRESO) onPrimaryColor else onSurfaceColor)
 
-        // Tarjeta Transferencia
         binding.cardTransferencia.setCardBackgroundColor(if (tipoSeleccionado == TipoTransaccion.TRANSFERENCIA) primaryColor else surfaceColor)
         setCardContentColor(binding.cardTransferencia, if (tipoSeleccionado == TipoTransaccion.TRANSFERENCIA) onPrimaryColor else onSurfaceColor)
 
@@ -340,13 +347,7 @@ class F_AnadirGasto : Fragment() {
                 return
             }
         } else {
-            for (i in 0 until binding.llParticipantesContainer.childCount) {
-                val row = binding.llParticipantesContainer.getChildAt(i) as LinearLayout
-                val cb = row.getChildAt(0) as CheckBox
-                if (cb.isChecked) {
-                    participantes.add(cb.tag as String)
-                }
-            }
+            participantes.addAll(seleccionadosIds)
             if (participantes.isEmpty()) {
                 Toast.makeText(requireContext(), "Selecciona al menos un participante", Toast.LENGTH_SHORT).show()
                 return
@@ -367,7 +368,7 @@ class F_AnadirGasto : Fragment() {
             )
 
             if (transaccionActual == null) {
-                viewModel.addTransaccion(transaccion)
+                viewModel.addTransaccion(transaccion, transaccion.familiaId)
             } else {
                 viewModel.updateTransaccion(transaccion)
             }

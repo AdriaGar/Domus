@@ -6,6 +6,8 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.signature.ObjectKey
 import com.example.domus.R
 import com.example.domus.data.repository.MemberInfo
 import com.example.domus.databinding.ItemFamilyMemberBinding
@@ -33,34 +35,32 @@ class Adapt_MiembrosFamilia(
             tvMemberName.text = member.nombre
             tvMemberEmail.text = member.email
             
+            // Forzamos el refresco de la foto usando lastUpdated como firma
             Glide.with(ivMemberAvatar.context)
                 .load(member.photoUrl)
+                .signature(ObjectKey(member.lastUpdated))
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .placeholder(R.drawable.ic_user_default)
                 .into(ivMemberAvatar)
 
-            // Reset visibilities
             tvRoleBadge.isVisible = false
             tvRoleBadge.setOnClickListener(null)
 
             when {
                 member.id == creatorId -> {
-                    // Es el creador original
                     tvRoleBadge.isVisible = true
                     tvRoleBadge.text = "Fundador"
                 }
                 member.id == adminId -> {
-                    // Es el administrador actual (pero no el creador)
                     tvRoleBadge.isVisible = true
                     tvRoleBadge.text = "Dueño"
                 }
                 onAcceptClick != null -> {
-                    // Estamos en la lista de solicitudes pendientes
                     tvRoleBadge.isVisible = true
                     tvRoleBadge.text = "Aceptar"
                     tvRoleBadge.setOnClickListener { onAcceptClick.invoke(member.id) }
                 }
                 isCurrentUserAdmin && member.id != currentUserId -> {
-                    // Es un miembro normal y el usuario actual es admin -> puede transferir poder
                     tvRoleBadge.isVisible = true
                     tvRoleBadge.text = "Gestionar"
                     tvRoleBadge.setOnClickListener { view ->

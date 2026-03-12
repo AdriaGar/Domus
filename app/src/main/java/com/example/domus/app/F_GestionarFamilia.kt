@@ -30,8 +30,6 @@ class F_GestionarFamilia : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: VM_Familia by viewModels()
 
-    private var membersAdapter: Adapt_MiembrosFamilia? = null
-    private var pendingAdapter: Adapt_MiembrosFamilia? = null
     private val auth = FirebaseAuth.getInstance()
 
     override fun onCreateView(
@@ -157,7 +155,6 @@ class F_GestionarFamilia : Fragment() {
                 binding.tvPendingLabel.isVisible = false
                 binding.rvPendingMembers.isVisible = false
                 
-                // Reset UI NoFamily
                 binding.tvNoFamilyTitle.text = "No perteneces a ninguna familia"
                 binding.tilFamilyCode.isVisible = true
                 binding.btnJoinFamily.text = "Unirse a Familia"
@@ -170,8 +167,7 @@ class F_GestionarFamilia : Fragment() {
                 binding.tvPendingLabel.isVisible = false
                 binding.rvPendingMembers.isVisible = false
 
-                // Update UI for Pending
-                binding.tvNoFamilyTitle.text = "Solicitud de familia pendiente"
+                binding.tvNoFamilyTitle.text = "Solicitud para ${state.familyName} pendiente"
                 binding.tilFamilyCode.isVisible = false
                 binding.btnJoinFamily.text = "Cancelar solicitud"
                 binding.tvOrCreate.isVisible = false
@@ -181,17 +177,14 @@ class F_GestionarFamilia : Fragment() {
                 binding.cardNoFamily.isVisible = false
                 binding.groupHasFamily.isVisible = true
                 
-                // El nombre lo ven todos
                 binding.tvFamilyName.text = state.family.name
 
-                // Visibilidad exclusiva para el administrador
                 binding.tvJoinCodeLabel.isVisible = state.isAdmin
                 binding.tvJoinCode.isVisible = state.isAdmin
                 binding.tvCodeTimer.isVisible = state.isAdmin && state.family.codeCreatedAt > 0L
                 binding.btnShareCode.isVisible = state.isAdmin
                 binding.btnRegenerateCode.isVisible = state.isAdmin
 
-                // Configurar botón de acción (Salir/Disolver)
                 binding.btnFamilyAction.text = if (state.isAdmin) "Disolver Familia" else "Salir de la Familia"
                 binding.btnFamilyAction.isVisible = true
 
@@ -226,8 +219,10 @@ class F_GestionarFamilia : Fragment() {
 
     private fun setupMembersList(members: List<MemberInfo>, adminId: String, creatorId: String, isAdmin: Boolean) {
         val currentUserId = auth.currentUser?.uid ?: ""
-        if (membersAdapter == null) {
-            membersAdapter = Adapt_MiembrosFamilia(
+        binding.rvMembers.apply {
+            layoutManager = LinearLayoutManager(context)
+            // Re-instanciamos el adaptador para asegurar que coja los últimos roles y datos
+            adapter = Adapt_MiembrosFamilia(
                 members = members,
                 adminId = adminId,
                 creatorId = creatorId,
@@ -235,33 +230,18 @@ class F_GestionarFamilia : Fragment() {
                 currentUserId = currentUserId,
                 onTransferAdminClick = { newAdminId -> viewModel.transferAdmin(newAdminId) }
             )
-            binding.rvMembers.layoutManager = LinearLayoutManager(context)
-            binding.rvMembers.adapter = membersAdapter
-        } else {
-            membersAdapter = Adapt_MiembrosFamilia(
-                members = members,
-                adminId = adminId,
-                creatorId = creatorId,
-                isCurrentUserAdmin = isAdmin,
-                currentUserId = currentUserId,
-                onTransferAdminClick = { newAdminId -> viewModel.transferAdmin(newAdminId) }
-            )
-            binding.rvMembers.adapter = membersAdapter
         }
     }
 
     private fun setupPendingMembersList(pending: List<MemberInfo>, adminId: String, creatorId: String) {
-        if (pendingAdapter == null) {
-            pendingAdapter = Adapt_MiembrosFamilia(
+        binding.rvPendingMembers.apply {
+            layoutManager = LinearLayoutManager(context)
+            adapter = Adapt_MiembrosFamilia(
                 members = pending,
                 adminId = adminId,
                 creatorId = creatorId,
                 onAcceptClick = { userId -> viewModel.acceptMember(userId) }
             )
-            binding.rvPendingMembers.layoutManager = LinearLayoutManager(context)
-            binding.rvPendingMembers.adapter = pendingAdapter
-        } else {
-            pendingAdapter?.updateData(pending)
         }
     }
 

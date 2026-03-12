@@ -12,7 +12,8 @@ data class MemberInfo(
     val id: String = "",
     val nombre: String = "",
     val email: String = "",
-    val photoUrl: String? = null
+    val photoUrl: String? = null,
+    val lastUpdated: Long = 0L
 )
 
 class Repo_Familia {
@@ -189,7 +190,8 @@ class Repo_Familia {
                     id = doc.id,
                     nombre = doc.getString("nombre") ?: doc.getString("Nombre") ?: defaultName,
                     email = email,
-                    photoUrl = doc.getString("photoUrl")
+                    photoUrl = doc.getString("photoUrl"),
+                    lastUpdated = doc.getLong("lastUpdated") ?: 0L
                 )
             }
         } catch (e: Exception) {
