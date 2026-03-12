@@ -6,8 +6,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.domus.R
 import com.example.domus.databinding.ItemStockCocinaBinding
 
-data class Producto(val nombre: String, val descripcion: String, val cantidad: Int)
-
 class Adapt_StockCocina(private val productos: List<Producto>) :
     RecyclerView.Adapter<Adapt_StockCocina.ViewHolder>() {
 

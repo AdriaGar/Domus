@@ -5,8 +5,6 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.example.domus.databinding.ItemTareaBinding
 
-data class Tarea(val titulo: String, val descripcion: String, var completada: Boolean)
-
 class Adapt_Tarea(private val tareas: List<Tarea>) : RecyclerView.Adapter<Adapt_Tarea.ViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -23,7 +21,7 @@ class Adapt_Tarea(private val tareas: List<Tarea>) : RecyclerView.Adapter<Adapt_
     class ViewHolder(private val binding: ItemTareaBinding) :
         RecyclerView.ViewHolder(binding.root) {
         fun bind(tarea: Tarea) {
-            binding.tvTituloTarea.text = tarea.titulo
+            binding.tvTituloTarea.text = tarea.nombre
             binding.tvDescripcionTarea.text = tarea.descripcion
             binding.cbTareaCompletada.isChecked = tarea.completada
         }

@@ -4,26 +4,55 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background"
+    android:background="?attr/colorSurface"
     tools:context=".app.F_StockCocina">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar">
+        android:background="?attr/colorSurface"
+        app:elevation="0dp">
 
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/toolbar_stock_cocina"
+        <com.google.android.material.appbar.CollapsingToolbarLayout
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            app:title="Stock de la Cocina" />
+            android:layout_height="wrap_content"
+            app:layout_scrollFlags="scroll|exitUntilCollapsed">
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Stock de la Cocina"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Overline"
+                    android:textSize="14sp"
+                    android:letterSpacing="0.1" />
+
+                <TextView
+                    android:id="@+id/tv_stock_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="36sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:textStyle="bold"
+                    tools:text="24 Productos" />
+
+            </LinearLayout>
+        </com.google.android.material.appbar.CollapsingToolbarLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_stock_cocina"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingBottom="80dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         tools:listitem="@layout/item_stock_cocina" />
 
@@ -34,7 +63,7 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp"
         android:src="@android:drawable/ic_input_add"
-        app:backgroundTint="@color/accent"
-        app:tint="@color/white" />
+        app:tint="?attr/colorOnPrimary"
+        app:backgroundTint="?attr/colorPrimary" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

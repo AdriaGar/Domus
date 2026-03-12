@@ -10,13 +10,19 @@ import com.example.domus.databinding.FragmentStockCocinaBinding
 
 class F_StockCocina : Fragment() {
 
-    private lateinit var binding: FragmentStockCocinaBinding
+    private var _binding: FragmentStockCocinaBinding? = null
+    private val binding get() = _binding!!
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        binding = FragmentStockCocinaBinding.inflate(inflater, container, false)
+        _binding = FragmentStockCocinaBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
         val productos = listOf(
             Producto("Tomates", "Tomates pera para ensalada", 5),
@@ -24,9 +30,16 @@ class F_StockCocina : Fragment() {
             Producto("Pan de molde", "Pan de molde sin corteza", 1)
         )
 
-        binding.rvStockCocina.layoutManager = LinearLayoutManager(requireContext())
-        binding.rvStockCocina.adapter = Adapt_StockCocina(productos)
+        binding.tvStockCount.text = "${productos.size} Productos"
 
-        return binding.root
+        binding.rvStockCocina.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = Adapt_StockCocina(productos)
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

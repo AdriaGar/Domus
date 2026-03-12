@@ -8,15 +8,23 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.domus.databinding.FragmentTareasBinding
 
+data class Tarea(val nombre: String, val descripcion: String, val completada: Boolean)
+
 class F_Tareas : Fragment() {
 
-    private lateinit var binding: FragmentTareasBinding
+    private var _binding: FragmentTareasBinding? = null
+    private val binding get() = _binding!!
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        binding = FragmentTareasBinding.inflate(inflater, container, false)
+        _binding = FragmentTareasBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
         val tareas = listOf(
             Tarea("Limpiar la cocina", "Fregar los platos y limpiar la encimera", false),
@@ -24,9 +32,17 @@ class F_Tareas : Fragment() {
             Tarea("Lavar la ropa", "Separar la ropa de color y la blanca", false)
         )
 
-        binding.rvTareas.layoutManager = LinearLayoutManager(requireContext())
-        binding.rvTareas.adapter = Adapt_Tarea(tareas)
+        // Actualizamos el contador siguiendo la nueva estética
+        binding.tvTareasCount.text = "${tareas.count { !it.completada }} Pendientes"
 
-        return binding.root
+        binding.rvTareas.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = Adapt_Tarea(tareas)
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }
