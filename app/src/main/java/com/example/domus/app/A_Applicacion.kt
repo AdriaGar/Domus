@@ -23,6 +23,8 @@ import androidx.navigation.navOptions
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.setupWithNavController
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.signature.ObjectKey
 import com.example.domus.R
 import com.example.domus.app.viewModel.VM_Familia
 import com.example.domus.databinding.ActivityApplicacionBinding
@@ -32,6 +34,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.launch
 
@@ -44,6 +47,7 @@ class A_Applicacion : AppCompatActivity() {
     
     private val familyViewModel: VM_Familia by viewModels()
     private var ivSync: ImageView? = null
+    private var profileImageView: CircleImageView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,13 +68,11 @@ class A_Applicacion : AppCompatActivity() {
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         navController = navHostFragment.navController
 
-        // Configurar títulos automáticos en la Toolbar
         val appBarConfiguration = AppBarConfiguration(
             setOf(R.id.f_Cuentas, R.id.f_ListaCompra, R.id.f_StockCocina, R.id.f_Tareas)
         )
         binding.topAppBar.setupWithNavController(navController, appBarConfiguration)
 
-        // Navegación que SIEMPRE lleva a la raíz de la pantalla
         binding.bottomNavView.setOnItemSelectedListener { item ->
             navController.navigate(item.itemId, null, navOptions {
                 launchSingleTop = true
@@ -83,6 +85,7 @@ class A_Applicacion : AppCompatActivity() {
         }
 
         observeSyncState()
+        observeUserProfile()
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -92,9 +95,8 @@ class A_Applicacion : AppCompatActivity() {
         val actionView = profileMenuItem?.actionView
         
         ivSync = actionView?.findViewById(R.id.iv_sync_icon)
-        val profileImageView = actionView?.findViewById<CircleImageView>(R.id.iv_profile_image)
+        profileImageView = actionView?.findViewById(R.id.iv_profile_image)
 
-        // Hacer el icono de sincronización visible y clicable manualmente
         ivSync?.let { iv ->
             iv.visibility = View.VISIBLE
             iv.setOnClickListener {
@@ -103,19 +105,33 @@ class A_Applicacion : AppCompatActivity() {
             }
         }
 
-        val user = auth.currentUser
-        if (profileImageView != null) {
-            Glide.with(this)
-                .load(user?.photoUrl)
-                .placeholder(R.drawable.ic_user_default)
-                .into(profileImageView)
-            
-            profileImageView.setOnClickListener {
-                showProfileMenu(it)
-            }
+        profileImageView?.setOnClickListener {
+            showProfileMenu(it)
         }
 
         return true
+    }
+
+    private fun observeUserProfile() {
+        val userId = auth.currentUser?.uid ?: return
+        
+        // Escuchamos los cambios del perfil del usuario actual en tiempo real
+        FirebaseFirestore.getInstance().collection("users").document(userId)
+            .addSnapshotListener { snapshot, _ ->
+                if (snapshot != null && snapshot.exists()) {
+                    val photoUrl = snapshot.getString("photoUrl")
+                    val lastUpdated = snapshot.getLong("lastUpdated") ?: 0L
+                    
+                    profileImageView?.let { iv ->
+                        Glide.with(this)
+                            .load(photoUrl)
+                            .signature(ObjectKey(lastUpdated))
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .placeholder(R.drawable.ic_user_default)
+                            .into(iv)
+                    }
+                }
+            }
     }
 
     private fun observeSyncState() {
@@ -139,7 +155,7 @@ class A_Applicacion : AppCompatActivity() {
                 iv.alpha = 1.0f
             } else {
                 iv.clearAnimation()
-                iv.alpha = 0.6f // Un poco más apagado cuando no está sincronizando
+                iv.alpha = 0.6f
             }
         }
     }

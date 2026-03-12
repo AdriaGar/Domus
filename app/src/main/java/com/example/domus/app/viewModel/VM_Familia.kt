@@ -9,6 +9,7 @@ import com.example.domus.data.model.Family
 import com.example.domus.data.repository.MemberInfo
 import com.example.domus.data.repository.Repo_Familia
 import com.example.domus.data.repository.Repo_Transaccion
+import com.example.domus.data.repository.Repo_ListaCompra
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,9 +32,10 @@ sealed class FamilyState {
 
 class VM_Familia(application: Application) : AndroidViewModel(application) {
     private val repository = Repo_Familia()
-    private val repoTransaccion = Repo_Transaccion(DB_Domus.getDatabase(application).transaccionDao())
-    private val auth = FirebaseAuth.getInstance()
     private val db = DB_Domus.getDatabase(application)
+    private val repoTransaccion = Repo_Transaccion(db.transaccionDao())
+    private val repoListaCompra = Repo_ListaCompra(db.itemCompraDao())
+    private val auth = FirebaseAuth.getInstance()
     private val familiaDao = db.familiaDao()
 
     private val _state = MutableStateFlow<FamilyState>(FamilyState.Loading)
@@ -74,10 +76,7 @@ class VM_Familia(application: Application) : AndroidViewModel(application) {
                     pendingDetails = pending
                 )
             } else {
-                // Si no hay nada en caché y no estamos cargando, mostrar NoFamily
-                if (_state.value is FamilyState.Loading) {
-                    // Esperamos a que syncWithFirebase termine
-                } else if (_state.value !is FamilyState.PendingApproval) {
+                if (_state.value !is FamilyState.PendingApproval && _state.value !is FamilyState.Loading) {
                     _state.value = FamilyState.NoFamily
                 }
             }
@@ -128,8 +127,8 @@ class VM_Familia(application: Application) : AndroidViewModel(application) {
         val userId = auth.currentUser?.uid ?: return@launch
         _state.value = FamilyState.Loading
         repository.createFamily(name, userId).onSuccess { familyId ->
-            // Transferimos los datos personales a la familia
             repoTransaccion.transferPersonalToFamily(userId, familyId)
+            repoListaCompra.transferPersonalToFamily(userId, familyId)
             syncWithFirebase()
         }.onFailure {
             _state.value = FamilyState.Error(it.message ?: "Error al crear familia")
@@ -140,8 +139,8 @@ class VM_Familia(application: Application) : AndroidViewModel(application) {
         val userId = auth.currentUser?.uid ?: return@launch
         _state.value = FamilyState.Loading
         repository.joinFamilyRequest(userId, code).onSuccess {
-            // Borramos los datos personales al unirse a una familia
             repoTransaccion.deletePersonalData(userId)
+            repoListaCompra.deletePersonalData(userId)
             syncWithFirebase()
         }.onFailure {
             _state.value = FamilyState.Error(it.message ?: "Error al unirse")
@@ -178,8 +177,8 @@ class VM_Familia(application: Application) : AndroidViewModel(application) {
             val familyId = currentState.family.id
             _state.value = FamilyState.Loading
             repository.dissolveFamily(familyId).onSuccess {
-                // Borramos todos los datos de la familia
                 repoTransaccion.deleteFamilyData(familyId)
+                repoListaCompra.deleteFamilyData(familyId)
                 familiaDao.deleteFamilia()
                 syncWithFirebase()
             }.onFailure {
