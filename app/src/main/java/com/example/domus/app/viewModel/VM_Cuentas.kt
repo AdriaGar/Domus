@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
-data class User(val uid: String, val nombre: String)
+data class User(val uid: String, val nombre: String, val photoUrl: String? = null)
 
 class VM_Cuentas(private val repository: Repo_Transaccion, application: Application) : ViewModel() {
 
@@ -48,13 +48,13 @@ class VM_Cuentas(private val repository: Repo_Transaccion, application: Applicat
             if (familia != null) {
                 // Cargar miembros reales de la familia
                 val membersInfo = repoFamilia.getMembersDetails(familia.members)
-                _users.value = membersInfo.map { User(it.id, it.nombre) }
+                _users.value = membersInfo.map { User(it.id, it.nombre, it.photoUrl) }
             } else {
                 // Si no hay familia, solo el usuario actual
                 val currentUser = auth.currentUser
                 if (currentUser != null) {
                     val nombre = currentUser.displayName ?: currentUser.email?.substringBefore("@") ?: "Yo"
-                    _users.value = listOf(User(currentUser.uid, nombre))
+                    _users.value = listOf(User(currentUser.uid, nombre, currentUser.photoUrl?.toString()))
                 }
             }
         }

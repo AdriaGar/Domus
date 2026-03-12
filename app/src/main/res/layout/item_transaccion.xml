@@ -41,27 +41,37 @@
             tools:text="-35,50 €"
             tools:textColor="#EF5350" />
 
+        <de.hdodenhof.circleimageview.CircleImageView
+            android:id="@+id/iv_usuario_pagador"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginTop="6dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tv_descripcion"
+            tools:src="@drawable/ic_user_default" />
+
         <TextView
             android:id="@+id/tv_usuario"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginStart="8dp"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tv_descripcion"
+            app:layout_constraintStart_toEndOf="@+id/iv_usuario_pagador"
+            app:layout_constraintTop_toTopOf="@+id/iv_usuario_pagador"
+            app:layout_constraintBottom_toBottomOf="@+id/iv_usuario_pagador"
             tools:text="Pagado por Juan" />
 
-        <TextView
-            android:id="@+id/tv_participantes"
+        <LinearLayout
+            android:id="@+id/ll_participantes_fotos"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
+            android:orientation="horizontal"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/tv_usuario"
-            app:layout_constraintBottom_toBottomOf="@+id/tv_usuario"
-            tools:text="(2 personas)" />
+            app:layout_constraintTop_toTopOf="@+id/iv_usuario_pagador"
+            app:layout_constraintBottom_toBottomOf="@+id/iv_usuario_pagador"
+            tools:layout_height="24dp"
+            tools:layout_width="60dp" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>

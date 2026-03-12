@@ -45,6 +45,11 @@ class F_Cuentas : Fragment() {
     private lateinit var transaccionAdapter: Adapt_Transaccion
     private var isExpanded = false
 
+    private fun formatName(fullName: String): String {
+        val parts = fullName.trim().split("\\s+".toRegex())
+        return if (parts.size >= 2) "${parts[0]} ${parts[1]}" else fullName
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -88,9 +93,10 @@ class F_Cuentas : Fragment() {
             combine(viewModel.allTransacciones, viewModel.users) { transacciones, users ->
                 Pair(transacciones, users)
             }.collect { (transacciones, users) ->
+                // Actualizamos los usuarios en el adaptador antes de enviar la lista de transacciones
+                transaccionAdapter.setUsers(users)
                 transaccionAdapter.submitList(transacciones)
                 
-                // Gasto Total (Suma de transacciones de tipo GASTO)
                 val totalGasto = transacciones.filter { it.tipo == TipoTransaccion.GASTO.name }
                                              .sumOf { it.cantidad }
                 
@@ -145,7 +151,7 @@ class F_Cuentas : Fragment() {
         binding.llMemberBalancesContainer.removeAllViews()
         users.forEach { user ->
             val balance = balances[user.uid] ?: 0.0
-            val row = createBalanceRow(user.nombre, balance)
+            val row = createBalanceRow(formatName(user.nombre), balance)
             binding.llMemberBalancesContainer.addView(row)
         }
     }
@@ -197,28 +203,33 @@ class F_Cuentas : Fragment() {
         }
 
         myDebts.forEach { debt ->
-            val creditorName = users.find { it.uid == debt.creditorId }?.nombre ?: "Alguien"
+            val creditor = users.find { it.uid == debt.creditorId }
+            val creditorName = if (creditor != null) formatName(creditor.nombre) else "Alguien"
             binding.llDebtsContainer.addView(createDebtRow(creditorName, debt.amount, true) {
                 pagarDeuda(debt, users)
             })
         }
 
         debtsToMe.forEach { debt ->
-            val debtorName = users.find { it.uid == debt.debtorId }?.nombre ?: "Alguien"
+            val debtor = users.find { it.uid == debt.debtorId }
+            val debtorName = if (debtor != null) formatName(debtor.nombre) else "Alguien"
             binding.llDebtsContainer.addView(createDebtRow(debtorName, debt.amount, false) {})
         }
     }
 
     private fun pagarDeuda(debt: Debt, users: List<User>) {
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        val currentUserName = users.find { it.uid == currentUserId }?.nombre ?: "Yo"
+        val currentUser = users.find { it.uid == currentUserId }
+        val currentUserName = if (currentUser != null) formatName(currentUser.nombre) else "Yo"
+        val creditor = users.find { it.uid == debt.creditorId }
+        val creditorName = if (creditor != null) formatName(creditor.nombre) else "Alguien"
         
         val transaccion = Transaccion(
-            descripcion = "Abono de deuda a ${users.find { it.uid == debt.creditorId }?.nombre}",
+            descripcion = "Abono de deuda a $creditorName",
             cantidad = debt.amount,
             tipo = TipoTransaccion.TRANSFERENCIA.name,
             usuarioId = currentUserId,
-            usuarioNombre = currentUserName,
+            usuarioNombre = currentUser?.nombre ?: "Yo",
             participantes = listOf(debt.creditorId),
             fecha = Date(),
             familiaId = viewModel.currentFamiliaId.value
@@ -284,9 +295,9 @@ class F_Cuentas : Fragment() {
             
             if (amount > 0.01) {
                 text = "+${String.format("%.2f €", amount)}"
-                setTextColor(Color.parseColor("#66BB6A")) // Verde suave
+                setTextColor(Color.parseColor("#66BB6A"))
             } else if (amount < -0.01) {
-                setTextColor(Color.parseColor("#EF5350")) // Rojo suave
+                setTextColor(Color.parseColor("#EF5350"))
             } else {
                 setTextColor(getThemeColor(com.google.android.material.R.attr.colorOnSurface))
             }
