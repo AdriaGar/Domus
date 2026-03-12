@@ -1,6 +1,7 @@
 package com.example.domus.data.database
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -30,4 +31,10 @@ interface TransaccionDao {
      */
     @Query("DELETE FROM transacciones")
     suspend fun deleteAll()
+
+    /**
+     * Borra una transacción específica.
+     */
+    @Delete
+    suspend fun delete(transaccion: Transaccion)
 }

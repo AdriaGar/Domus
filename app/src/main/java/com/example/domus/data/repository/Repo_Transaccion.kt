@@ -6,7 +6,7 @@ import com.example.domus.data.Entity.Transaccion
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.ktx.toObjects
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,12 +25,16 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
     private val transaccionesCollection = firestore.collection("transacciones")
     private var snapshotListener: ListenerRegistration? = null
 
+    // Fuente de verdad: La base de datos local Room
     val allTransacciones: Flow<List<Transaccion>> = transaccionDao.getAll()
 
     init {
         Log.d(TAG, "Repo_Transaccion inicializado.")
     }
 
+    /**
+     * Inicia la escucha en tiempo real de Firestore.
+     */
     fun startSync(familiaId: String?) {
         snapshotListener?.remove()
         
@@ -42,7 +46,7 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
             transaccionesCollection.whereEqualTo("usuarioId", userId).whereEqualTo("familiaId", null)
         }
 
-        snapshotListener = query.addSnapshotListener { snapshots, e ->
+        snapshotListener = query.addSnapshotListener(MetadataChanges.INCLUDE) { snapshots, e ->
             if (e != null) {
                 Log.e(TAG, "Error en el listener de Firestore.", e)
                 return@addSnapshotListener
@@ -71,7 +75,8 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
                 usuarioId = user.uid,
                 familiaId = familiaId
             )
-            docRef.set(finalTransaccion).await()
+            transaccionDao.insertAll(listOf(finalTransaccion))
+            docRef.set(finalTransaccion)
         } catch (e: Exception) {
             Log.e(TAG, "Error al añadir transacción", e)
         }
@@ -80,7 +85,8 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
     suspend fun updateTransaccion(transaccion: Transaccion) {
         if (transaccion.id.isNotEmpty()) {
             try {
-                transaccionesCollection.document(transaccion.id).set(transaccion).await()
+                transaccionDao.insertAll(listOf(transaccion))
+                transaccionesCollection.document(transaccion.id).set(transaccion)
             } catch (e: Exception) {
                 Log.e(TAG, "Error al actualizar transacción", e)
             }
@@ -90,12 +96,15 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
     suspend fun deleteTransaccion(transaccion: Transaccion) {
         if (transaccion.id.isNotEmpty()) {
             try {
-                transaccionesCollection.document(transaccion.id).delete().await()
+                transaccionDao.delete(transaccion)
+                transaccionesCollection.document(transaccion.id).delete()
             } catch (e: Exception) {
                 Log.e(TAG, "Error al eliminar transacción", e)
             }
         }
     }
+
+    // --- Métodos de gestión de datos restaurados ---
 
     suspend fun transferPersonalToFamily(userId: String, familiaId: String) {
         try {
