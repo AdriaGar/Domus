@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.domus.data.database.DB_Domus
 import com.example.domus.data.Entity.Entity_ItemCompra
 import com.example.domus.data.repository.Repo_ListaCompra
-import com.example.domus.data.repository.Repo_Familia
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 class VM_ListaCompra(private val repository: Repo_ListaCompra, application: Application) : AndroidViewModel(application) {
 
@@ -52,11 +52,30 @@ class VM_ListaCompra(private val repository: Repo_ListaCompra, application: Appl
         repository.deleteItem(item)
     }
 
-    fun clearCompletedItems() = viewModelScope.launch {
+    /**
+     * Archiva los artículos comprados en un lote con la fecha y hora actual.
+     */
+    fun archiveCompletedItems() = viewModelScope.launch {
         val items = allItems.first()
-        items.filter { it.comprado }.forEach { item ->
-            repository.deleteItem(item)
+        val now = System.currentTimeMillis()
+        val uniqueLoteId = UUID.randomUUID().toString()
+        
+        items.filter { it.comprado && !it.archivado }.forEach { item ->
+            repository.updateItem(item.copy(
+                archivado = true, 
+                loteId = uniqueLoteId,
+                fechaLiquidacion = now
+            ))
         }
+    }
+
+    fun restoreItem(item: Entity_ItemCompra) = viewModelScope.launch {
+        repository.updateItem(item.copy(
+            archivado = false, 
+            comprado = false, 
+            loteId = null, 
+            fechaLiquidacion = null
+        ))
     }
 }
 

@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?attr/colorSurface"
-    tools:context=".app.F_StockCocina">
+    tools:context=".app.F_HistorialCompra">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -27,61 +27,33 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Stock de la Cocina"
+                    android:text="Historial de Compras"
                     android:textColor="?attr/colorOnSurfaceVariant"
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Overline"
                     android:textSize="14sp"
                     android:letterSpacing="0.1" />
 
                 <TextView
-                    android:id="@+id/tv_stock_count"
+                    android:id="@+id/tv_historial_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="?attr/colorOnSurface"
                     android:textSize="36sp"
                     android:fontFamily="sans-serif-medium"
                     android:textStyle="bold"
-                    tools:text="24 Productos" />
+                    tools:text="45 Artículos" />
 
             </LinearLayout>
         </com.google.android.material.appbar.CollapsingToolbarLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_stock_cocina"
+        android:id="@+id/rv_historial_compra"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:paddingBottom="88dp"
+        android:paddingBottom="16dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
-        tools:listitem="@layout/item_stock_cocina" />
-
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-            android:id="@+id/fab_add_almacen"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:text="Almacén"
-            app:icon="@android:drawable/ic_input_add"
-            app:iconTint="?attr/colorOnSecondaryContainer"
-            app:backgroundTint="?attr/colorSecondaryContainer" />
-
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab_add_stock_item"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@android:drawable/ic_input_add"
-            app:tint="?attr/colorOnPrimary"
-            app:backgroundTint="?attr/colorPrimary" />
-
-    </LinearLayout>
+        tools:listitem="@layout/item_lista_compra" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

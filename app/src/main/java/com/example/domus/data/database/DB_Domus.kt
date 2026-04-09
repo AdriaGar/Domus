@@ -8,14 +8,18 @@ import androidx.room.TypeConverters
 import com.example.domus.data.Entity.Entity_Familia
 import com.example.domus.data.Entity.Transaccion
 import com.example.domus.data.Entity.Entity_ItemCompra
+import com.example.domus.app.Producto
+import com.example.domus.app.Almacen
 
-@Database(entities = [Transaccion::class, Entity_Familia::class, Entity_ItemCompra::class], version = 6, exportSchema = false)
+@Database(entities = [Transaccion::class, Entity_Familia::class, Entity_ItemCompra::class, Producto::class, Almacen::class], version = 10, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class DB_Domus : RoomDatabase() {
 
     abstract fun transaccionDao(): TransaccionDao
     abstract fun familiaDao(): FamiliaDao
     abstract fun itemCompraDao(): ItemCompraDao
+    abstract fun stockCocinaDao(): StockCocinaDao
+    abstract fun almacenDao(): AlmacenDao
 
     companion object {
         @Volatile

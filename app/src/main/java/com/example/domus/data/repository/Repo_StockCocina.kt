@@ -1,8 +1,8 @@
 package com.example.domus.data.repository
 
 import android.util.Log
-import com.example.domus.data.database.ItemCompraDao
-import com.example.domus.data.Entity.Entity_ItemCompra
+import com.example.domus.data.database.StockCocinaDao
+import com.example.domus.app.Producto
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -15,89 +15,91 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-class Repo_ListaCompra(private val itemDao: ItemCompraDao) {
+class Repo_StockCocina(private val stockDao: StockCocinaDao) {
 
     private val TAG = "DomusDebug"
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val itemsCollection = firestore.collection("lista_compra")
+    private val stockCollection = firestore.collection("stock_cocina")
     private var snapshotListener: ListenerRegistration? = null
 
-    val allItems: Flow<List<Entity_ItemCompra>> = itemDao.getAll()
+    val allProductos: Flow<List<Producto>> = stockDao.getAll()
 
     fun startSync(familiaId: String?) {
         snapshotListener?.remove()
         val userId = auth.currentUser?.uid ?: return
         
         val query = if (familiaId != null) {
-            itemsCollection.whereEqualTo("familiaId", familiaId)
+            stockCollection.whereEqualTo("familiaId", familiaId)
         } else {
-            itemsCollection.whereEqualTo("usuarioId", userId).whereEqualTo("familiaId", null)
+            stockCollection.whereEqualTo("usuarioId", userId).whereEqualTo("familiaId", null)
         }
 
         snapshotListener = query.addSnapshotListener(MetadataChanges.INCLUDE) { snapshots, e ->
             if (e != null) {
-                Log.e(TAG, "Error en el listener de ListaCompra", e)
+                Log.e(TAG, "Error en el listener de StockCocina", e)
                 return@addSnapshotListener
             }
 
             if (snapshots != null) {
-                val items = snapshots.toObjects(Entity_ItemCompra::class.java)
+                val productos = snapshots.toObjects(Producto::class.java)
                 repositoryScope.launch {
                     try {
-                        itemDao.deleteAll()
-                        itemDao.insertAll(items)
+                        stockDao.deleteAll()
+                        stockDao.insertAll(productos)
                     } catch(dbError: Exception) {
-                        Log.e(TAG, "Error al actualizar Room ListaCompra", dbError)
+                        Log.e(TAG, "Error al actualizar Room StockCocina", dbError)
                     }
                 }
             }
         }
     }
 
-    suspend fun addItem(item: Entity_ItemCompra, familiaId: String?) {
+    suspend fun addProducto(producto: Producto, familiaId: String?) {
         val user = auth.currentUser ?: return
         try {
-            val docRef = itemsCollection.document()
-            val finalItem = item.copy(
+            val docRef = stockCollection.document()
+            val finalProducto = producto.copy(
                 id = docRef.id,
                 usuarioId = user.uid,
                 familiaId = familiaId
             )
-            itemDao.insertAll(listOf(finalItem))
-            docRef.set(finalItem)
+            stockDao.insertAll(listOf(finalProducto))
+            docRef.set(finalProducto)
         } catch (e: Exception) {
-            Log.e(TAG, "Error al añadir item compra", e)
+            Log.e(TAG, "Error al añadir producto al stock", e)
         }
     }
 
-    suspend fun updateItem(item: Entity_ItemCompra) {
-        if (item.id.isNotEmpty()) {
+    suspend fun updateProducto(producto: Producto) {
+        if (producto.id.isNotEmpty()) {
             try {
-                itemDao.insertAll(listOf(item))
-                itemsCollection.document(item.id).set(item)
+                stockDao.insertAll(listOf(producto))
+                stockCollection.document(producto.id).set(producto)
             } catch (e: Exception) {
-                Log.e(TAG, "Error al actualizar item compra", e)
+                Log.e(TAG, "Error al actualizar producto del stock", e)
             }
         }
     }
 
-    suspend fun deleteItem(item: Entity_ItemCompra) {
-        if (item.id.isNotEmpty()) {
+    suspend fun deleteProducto(producto: Producto) {
+        if (producto.id.isNotEmpty()) {
             try {
-                itemDao.delete(item)
-                itemsCollection.document(item.id).delete()
+                stockDao.delete(producto)
+                stockCollection.document(producto.id).delete()
             } catch (e: Exception) {
-                Log.e(TAG, "Error al eliminar item compra", e)
+                Log.e(TAG, "Error al eliminar producto del stock", e)
             }
         }
     }
+
+    // --- Métodos de gestión de datos familiares ---
 
     suspend fun transferPersonalToFamily(userId: String, familiaId: String) {
         try {
-            val personalItems = itemsCollection
+            val personalItems = stockCollection
                 .whereEqualTo("usuarioId", userId)
                 .whereEqualTo("familiaId", null)
                 .get().await()
@@ -108,40 +110,29 @@ class Repo_ListaCompra(private val itemDao: ItemCompraDao) {
                 }
             }.await()
         } catch (e: Exception) {
-            Log.e(TAG, "Error al transferir lista de compra", e)
+            Log.e(TAG, "Error al transferir stock", e)
         }
     }
 
     suspend fun deleteFamilyData(familiaId: String) {
         try {
-            val familyItems = itemsCollection
-                .whereEqualTo("familiaId", familiaId)
-                .get().await()
-
+            val familyItems = stockCollection.whereEqualTo("familiaId", familiaId).get().await()
             firestore.runTransaction { transaction ->
-                familyItems.documents.forEach { doc ->
-                    transaction.delete(doc.reference)
-                }
+                familyItems.documents.forEach { transaction.delete(it.reference) }
             }.await()
         } catch (e: Exception) {
-            Log.e(TAG, "Error al borrar lista de compra familiar", e)
+            Log.e(TAG, "Error al borrar stock familiar", e)
         }
     }
 
     suspend fun deletePersonalData(userId: String) {
         try {
-            val personalItems = itemsCollection
-                .whereEqualTo("usuarioId", userId)
-                .whereEqualTo("familiaId", null)
-                .get().await()
-
+            val personalItems = stockCollection.whereEqualTo("usuarioId", userId).whereEqualTo("familiaId", null).get().await()
             firestore.runTransaction { transaction ->
-                personalItems.documents.forEach { doc ->
-                    transaction.delete(doc.reference)
-                }
+                personalItems.documents.forEach { transaction.delete(it.reference) }
             }.await()
         } catch (e: Exception) {
-            Log.e(TAG, "Error al borrar lista de compra personal", e)
+            Log.e(TAG, "Error al borrar stock personal", e)
         }
     }
 }

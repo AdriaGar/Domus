@@ -35,17 +35,43 @@
         android:id="@+id/f_ListaCompra"
         android:name="com.example.domus.app.F_ListaCompra"
         android:label="Lista de la Compra"
-        tools:layout="@layout/fragment_lista_compra" />
+        tools:layout="@layout/fragment_lista_compra">
+        <action
+            android:id="@+id/action_f_ListaCompra_to_f_HistorialCompra"
+            app:destination="@id/f_HistorialCompra" />
+        <action
+            android:id="@+id/action_f_ListaCompra_to_f_AnadirGasto"
+            app:destination="@id/f_AnadirGasto" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/f_HistorialCompra"
+        android:name="com.example.domus.app.F_HistorialCompra"
+        android:label="Historial de Compras"
+        tools:layout="@layout/fragment_historial_compra" />
+
     <fragment
         android:id="@+id/f_Tareas"
         android:name="com.example.domus.app.F_Tareas"
         android:label="Tareas"
         tools:layout="@layout/fragment_tareas" />
+
     <fragment
         android:id="@+id/f_StockCocina"
         android:name="com.example.domus.app.F_StockCocina"
         android:label="Stock de Cocina"
-        tools:layout="@layout/fragment_stock_cocina" />
+        tools:layout="@layout/fragment_stock_cocina">
+        <action
+            android:id="@+id/action_f_StockCocina_to_f_AnadirProductoStock"
+            app:destination="@id/f_AnadirProductoStock" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/f_AnadirProductoStock"
+        android:name="com.example.domus.app.F_AnadirProductoStock"
+        android:label="Añadir Producto"
+        tools:layout="@layout/fragment_anadir_producto_stock" />
+
     <fragment
         android:id="@+id/f_GestionarFamilia"
         android:name="com.example.domus.app.F_GestionarFamilia"

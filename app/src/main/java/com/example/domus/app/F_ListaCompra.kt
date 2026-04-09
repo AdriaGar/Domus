@@ -7,14 +7,20 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import androidx.core.view.isVisible
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.domus.R
 import com.example.domus.app.viewModel.ListaCompraViewModelFactory
+import com.example.domus.app.viewModel.User
+import com.example.domus.app.viewModel.VM_Cuentas
 import com.example.domus.app.viewModel.VM_ListaCompra
 import com.example.domus.data.Entity.Entity_ItemCompra
 import com.example.domus.databinding.FragmentListaCompraBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 class F_ListaCompra : Fragment() {
@@ -25,6 +31,8 @@ class F_ListaCompra : Fragment() {
     private val viewModel: VM_ListaCompra by viewModels {
         ListaCompraViewModelFactory(requireActivity().application)
     }
+    
+    private val accountsViewModel: VM_Cuentas by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -39,6 +47,7 @@ class F_ListaCompra : Fragment() {
 
         setupRecyclerView()
         setupFabs()
+        setupHeaderClick()
         observeViewModel()
     }
 
@@ -50,32 +59,59 @@ class F_ListaCompra : Fragment() {
         )
     }
 
+    private fun setupHeaderClick() {
+        binding.tvItemsCount.setOnClickListener {
+            findNavController().navigate(R.id.f_HistorialCompra)
+        }
+    }
+
     private fun setupFabs() {
         binding.fabAddListaCompraItem.setOnClickListener {
             showAddItemDialog()
         }
 
         binding.fabClearCompleted.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Limpiar lista")
-                .setMessage("¿Quieres eliminar todos los productos marcados como comprados?")
-                .setPositiveButton("Eliminar") { _, _ -> viewModel.clearCompletedItems() }
-                .setNegativeButton("Cancelar", null)
-                .show()
+            showLiquidationDialog()
         }
+    }
+
+    private fun showLiquidationDialog() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Liquidar Compra")
+            .setMessage("¿Quieres registrar un gasto en cuentas además de archivar estos productos?")
+            .setPositiveButton("Liquidar y Añadir Gasto") { _, _ ->
+                viewModel.archiveCompletedItems()
+                // Navegamos a añadir gasto para registrar el importe de la compra
+                val action = F_ListaCompraDirections.actionFListaCompraToFAnadirGasto(
+                    transaccionId = null,
+                    title = "Registrar Gasto de Compra"
+                )
+                findNavController().navigate(action)
+            }
+            .setNeutralButton("Solo Liquidar") { _, _ ->
+                viewModel.archiveCompletedItems()
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.allItems.collect { items ->
-                (binding.rvListaCompra.adapter as? Adapt_ListaCompra)?.updateData(items)
+            combine(viewModel.allItems, accountsViewModel.users) { items: List<Entity_ItemCompra>, users: List<User> ->
+                Pair(items, users)
+            }.collect { (items, users) ->
+                val currentItems = items.filter { !it.archivado }
                 
-                val pendientes = items.count { !it.comprado }
-                val compradosCount = items.count { it.comprado }
+                val adapter = binding.rvListaCompra.adapter as? Adapt_ListaCompra
+                adapter?.let {
+                    it.updateUsers(users)
+                    it.submitList(currentItems)
+                }
+                
+                val pendientes = currentItems.count { !it.comprado }
+                val compradosCount = currentItems.count { it.comprado }
                 
                 binding.tvItemsCount.text = "$pendientes Pendientes"
-                
-                // Mostrar el botón de limpiar solo si hay items comprados
                 binding.fabClearCompleted.isVisible = compradosCount > 0
             }
         }
@@ -101,7 +137,7 @@ class F_ListaCompra : Fragment() {
     private fun showDeleteConfirmation(item: Entity_ItemCompra) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Eliminar artículo")
-            .setMessage("¿Quieres quitar '${item.nombre}' de la lista?")
+            .setMessage("¿Quieres eliminar permanentemente '${item.nombre}'?")
             .setPositiveButton("Eliminar") { _, _ -> viewModel.deleteItem(item) }
             .setNegativeButton("Cancelar", null)
             .show()

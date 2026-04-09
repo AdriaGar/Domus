@@ -13,7 +13,7 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp">
+        android:padding="12dp">
 
         <CheckBox
             android:id="@+id/cb_item_comprado"
@@ -28,15 +28,25 @@
             android:id="@+id/tv_nombre_item_compra"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
             android:textColor="?attr/colorOnSurface"
             android:textStyle="bold"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/iv_added_by"
             app:layout_constraintStart_toEndOf="@+id/cb_item_comprado"
             app:layout_constraintTop_toTopOf="parent"
             tools:text="Leche Desnatada" />
+
+        <de.hdodenhof.circleimageview.CircleImageView
+            android:id="@+id/iv_added_by"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:src="@drawable/ic_user_default" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>
