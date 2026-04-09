@@ -11,7 +11,7 @@ import com.example.domus.data.Entity.Entity_ItemCompra
 import com.example.domus.app.Producto
 import com.example.domus.app.Almacen
 
-@Database(entities = [Transaccion::class, Entity_Familia::class, Entity_ItemCompra::class, Producto::class, Almacen::class], version = 10, exportSchema = false)
+@Database(entities = [Transaccion::class, Entity_Familia::class, Entity_ItemCompra::class, Producto::class, Almacen::class], version = 12, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class DB_Domus : RoomDatabase() {
 

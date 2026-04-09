@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.domus.data.database.ItemCompraDao
 import com.example.domus.data.Entity.Entity_ItemCompra
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.MetadataChanges
@@ -22,22 +23,25 @@ class Repo_ListaCompra(private val itemDao: ItemCompraDao) {
     private val auth = FirebaseAuth.getInstance()
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val itemsCollection = firestore.collection("lista_compra")
     private var snapshotListener: ListenerRegistration? = null
 
     val allItems: Flow<List<Entity_ItemCompra>> = itemDao.getAll()
 
+    private fun getCollection(familiaId: String?): CollectionReference {
+        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Usuario no autenticado")
+        return if (familiaId != null) {
+            firestore.collection("families").document(familiaId).collection("lista_compra")
+        } else {
+            firestore.collection("users").document(userId).collection("lista_compra")
+        }
+    }
+
     fun startSync(familiaId: String?) {
         snapshotListener?.remove()
-        val userId = auth.currentUser?.uid ?: return
         
-        val query = if (familiaId != null) {
-            itemsCollection.whereEqualTo("familiaId", familiaId)
-        } else {
-            itemsCollection.whereEqualTo("usuarioId", userId).whereEqualTo("familiaId", null)
-        }
+        val collection = try { getCollection(familiaId) } catch (e: Exception) { return }
 
-        snapshotListener = query.addSnapshotListener(MetadataChanges.INCLUDE) { snapshots, e ->
+        snapshotListener = collection.addSnapshotListener(MetadataChanges.INCLUDE) { snapshots, e ->
             if (e != null) {
                 Log.e(TAG, "Error en el listener de ListaCompra", e)
                 return@addSnapshotListener
@@ -60,7 +64,8 @@ class Repo_ListaCompra(private val itemDao: ItemCompraDao) {
     suspend fun addItem(item: Entity_ItemCompra, familiaId: String?) {
         val user = auth.currentUser ?: return
         try {
-            val docRef = itemsCollection.document()
+            val collection = getCollection(familiaId)
+            val docRef = collection.document()
             val finalItem = item.copy(
                 id = docRef.id,
                 usuarioId = user.uid,
@@ -77,7 +82,7 @@ class Repo_ListaCompra(private val itemDao: ItemCompraDao) {
         if (item.id.isNotEmpty()) {
             try {
                 itemDao.insertAll(listOf(item))
-                itemsCollection.document(item.id).set(item)
+                getCollection(item.familiaId).document(item.id).set(item)
             } catch (e: Exception) {
                 Log.e(TAG, "Error al actualizar item compra", e)
             }
@@ -88,7 +93,7 @@ class Repo_ListaCompra(private val itemDao: ItemCompraDao) {
         if (item.id.isNotEmpty()) {
             try {
                 itemDao.delete(item)
-                itemsCollection.document(item.id).delete()
+                getCollection(item.familiaId).document(item.id).delete()
             } catch (e: Exception) {
                 Log.e(TAG, "Error al eliminar item compra", e)
             }
@@ -97,14 +102,19 @@ class Repo_ListaCompra(private val itemDao: ItemCompraDao) {
 
     suspend fun transferPersonalToFamily(userId: String, familiaId: String) {
         try {
-            val personalItems = itemsCollection
-                .whereEqualTo("usuarioId", userId)
-                .whereEqualTo("familiaId", null)
-                .get().await()
+            val personalColl = firestore.collection("users").document(userId).collection("lista_compra")
+            val familyColl = firestore.collection("families").document(familiaId).collection("lista_compra")
+            
+            val snapshots = personalColl.get().await()
 
             firestore.runTransaction { transaction ->
-                personalItems.documents.forEach { doc ->
-                    transaction.update(doc.reference, "familiaId", familiaId)
+                snapshots.documents.forEach { doc ->
+                    val item = doc.toObject(Entity_ItemCompra::class.java)
+                    if (item != null) {
+                        val newItem = item.copy(familiaId = familiaId)
+                        transaction.set(familyColl.document(doc.id), newItem)
+                        transaction.delete(doc.reference)
+                    }
                 }
             }.await()
         } catch (e: Exception) {
@@ -114,12 +124,11 @@ class Repo_ListaCompra(private val itemDao: ItemCompraDao) {
 
     suspend fun deleteFamilyData(familiaId: String) {
         try {
-            val familyItems = itemsCollection
-                .whereEqualTo("familiaId", familiaId)
-                .get().await()
+            val familyColl = firestore.collection("families").document(familiaId).collection("lista_compra")
+            val snapshots = familyColl.get().await()
 
             firestore.runTransaction { transaction ->
-                familyItems.documents.forEach { doc ->
+                snapshots.documents.forEach { doc ->
                     transaction.delete(doc.reference)
                 }
             }.await()
@@ -130,13 +139,11 @@ class Repo_ListaCompra(private val itemDao: ItemCompraDao) {
 
     suspend fun deletePersonalData(userId: String) {
         try {
-            val personalItems = itemsCollection
-                .whereEqualTo("usuarioId", userId)
-                .whereEqualTo("familiaId", null)
-                .get().await()
+            val personalColl = firestore.collection("users").document(userId).collection("lista_compra")
+            val snapshots = personalColl.get().await()
 
             firestore.runTransaction { transaction ->
-                personalItems.documents.forEach { doc ->
+                snapshots.documents.forEach { doc ->
                     transaction.delete(doc.reference)
                 }
             }.await()

@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.domus.data.database.TransaccionDao
 import com.example.domus.data.Entity.Transaccion
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.MetadataChanges
@@ -22,31 +23,25 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
     private val auth = FirebaseAuth.getInstance()
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val transaccionesCollection = firestore.collection("transacciones")
     private var snapshotListener: ListenerRegistration? = null
 
-    // Fuente de verdad: La base de datos local Room
     val allTransacciones: Flow<List<Transaccion>> = transaccionDao.getAll()
 
-    init {
-        Log.d(TAG, "Repo_Transaccion inicializado.")
+    private fun getCollection(familiaId: String?): CollectionReference {
+        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Usuario no autenticado")
+        return if (!familiaId.isNullOrEmpty()) {
+            firestore.collection("families").document(familiaId).collection("transacciones")
+        } else {
+            firestore.collection("users").document(userId).collection("transacciones")
+        }
     }
 
-    /**
-     * Inicia la escucha en tiempo real de Firestore.
-     */
     fun startSync(familiaId: String?) {
         snapshotListener?.remove()
         
-        val userId = auth.currentUser?.uid ?: return
-        
-        val query = if (familiaId != null) {
-            transaccionesCollection.whereEqualTo("familiaId", familiaId)
-        } else {
-            transaccionesCollection.whereEqualTo("usuarioId", userId).whereEqualTo("familiaId", null)
-        }
+        val collection = try { getCollection(familiaId) } catch (e: Exception) { return }
 
-        snapshotListener = query.addSnapshotListener(MetadataChanges.INCLUDE) { snapshots, e ->
+        snapshotListener = collection.addSnapshotListener(MetadataChanges.INCLUDE) { snapshots, e ->
             if (e != null) {
                 Log.e(TAG, "Error en el listener de Firestore.", e)
                 return@addSnapshotListener
@@ -69,7 +64,8 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
     suspend fun addTransaccion(transaccion: Transaccion, familiaId: String?) {
         val user = auth.currentUser ?: return
         try {
-            val docRef = transaccionesCollection.document()
+            val collection = getCollection(familiaId)
+            val docRef = collection.document()
             val finalTransaccion = transaccion.copy(
                 id = docRef.id,
                 usuarioId = user.uid,
@@ -86,7 +82,7 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
         if (transaccion.id.isNotEmpty()) {
             try {
                 transaccionDao.insertAll(listOf(transaccion))
-                transaccionesCollection.document(transaccion.id).set(transaccion)
+                getCollection(transaccion.familiaId).document(transaccion.id).set(transaccion)
             } catch (e: Exception) {
                 Log.e(TAG, "Error al actualizar transacción", e)
             }
@@ -97,25 +93,28 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
         if (transaccion.id.isNotEmpty()) {
             try {
                 transaccionDao.delete(transaccion)
-                transaccionesCollection.document(transaccion.id).delete()
+                getCollection(transaccion.familiaId).document(transaccion.id).delete()
             } catch (e: Exception) {
                 Log.e(TAG, "Error al eliminar transacción", e)
             }
         }
     }
 
-    // --- Métodos de gestión de datos restaurados ---
-
     suspend fun transferPersonalToFamily(userId: String, familiaId: String) {
         try {
-            val personalTrans = transaccionesCollection
-                .whereEqualTo("usuarioId", userId)
-                .whereEqualTo("familiaId", null)
-                .get().await()
-
+            val personalColl = firestore.collection("users").document(userId).collection("transacciones")
+            val familyColl = firestore.collection("families").document(familiaId).collection("transacciones")
+            
+            val snapshots = personalColl.get().await()
+            
             firestore.runTransaction { transaction ->
-                personalTrans.documents.forEach { doc ->
-                    transaction.update(doc.reference, "familiaId", familiaId)
+                snapshots.documents.forEach { doc ->
+                    val trans = doc.toObject(Transaccion::class.java)
+                    if (trans != null) {
+                        val newTrans = trans.copy(familiaId = familiaId)
+                        transaction.set(familyColl.document(doc.id), newTrans)
+                        transaction.delete(doc.reference)
+                    }
                 }
             }.await()
         } catch (e: Exception) {
@@ -125,12 +124,11 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
 
     suspend fun deleteFamilyData(familiaId: String) {
         try {
-            val familyTrans = transaccionesCollection
-                .whereEqualTo("familiaId", familiaId)
-                .get().await()
-
+            val familyColl = firestore.collection("families").document(familiaId).collection("transacciones")
+            val snapshots = familyColl.get().await()
+            
             firestore.runTransaction { transaction ->
-                familyTrans.documents.forEach { doc ->
+                snapshots.documents.forEach { doc ->
                     transaction.delete(doc.reference)
                 }
             }.await()
@@ -141,13 +139,11 @@ class Repo_Transaccion(private val transaccionDao: TransaccionDao) {
 
     suspend fun deletePersonalData(userId: String) {
         try {
-            val personalTrans = transaccionesCollection
-                .whereEqualTo("usuarioId", userId)
-                .whereEqualTo("familiaId", null)
-                .get().await()
+            val personalColl = firestore.collection("users").document(userId).collection("transacciones")
+            val snapshots = personalColl.get().await()
 
             firestore.runTransaction { transaction ->
-                personalTrans.documents.forEach { doc ->
+                snapshots.documents.forEach { doc ->
                     transaction.delete(doc.reference)
                 }
             }.await()

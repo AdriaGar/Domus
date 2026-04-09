@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.domus.data.database.AlmacenDao
 import com.example.domus.app.Almacen
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.MetadataChanges
@@ -21,22 +22,25 @@ class Repo_Almacen(private val almacenDao: AlmacenDao) {
     private val auth = FirebaseAuth.getInstance()
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val almacenesCollection = firestore.collection("almacenes")
     private var snapshotListener: ListenerRegistration? = null
 
     val allAlmacenes: Flow<List<Almacen>> = almacenDao.getAll()
 
+    private fun getCollection(familiaId: String?): CollectionReference {
+        val userId = auth.currentUser?.uid ?: throw IllegalStateException("Usuario no autenticado")
+        return if (familiaId != null) {
+            firestore.collection("families").document(familiaId).collection("almacenes")
+        } else {
+            firestore.collection("users").document(userId).collection("almacenes")
+        }
+    }
+
     fun startSync(familiaId: String?) {
         snapshotListener?.remove()
-        val userId = auth.currentUser?.uid ?: return
         
-        val query = if (familiaId != null) {
-            almacenesCollection.whereEqualTo("familiaId", familiaId)
-        } else {
-            almacenesCollection.whereEqualTo("usuarioId", userId).whereEqualTo("familiaId", null)
-        }
+        val collection = try { getCollection(familiaId) } catch (e: Exception) { return }
 
-        snapshotListener = query.addSnapshotListener(MetadataChanges.INCLUDE) { snapshots, e ->
+        snapshotListener = collection.addSnapshotListener(MetadataChanges.INCLUDE) { snapshots, e ->
             if (e != null) {
                 Log.e(TAG, "Error en el listener de Almacenes", e)
                 return@addSnapshotListener
@@ -59,7 +63,8 @@ class Repo_Almacen(private val almacenDao: AlmacenDao) {
     suspend fun addAlmacen(almacen: Almacen, familiaId: String?) {
         val user = auth.currentUser ?: return
         try {
-            val docRef = almacenesCollection.document()
+            val collection = getCollection(familiaId)
+            val docRef = collection.document()
             val finalAlmacen = almacen.copy(
                 id = docRef.id,
                 usuarioId = user.uid,
@@ -76,7 +81,7 @@ class Repo_Almacen(private val almacenDao: AlmacenDao) {
         if (almacen.id.isNotEmpty()) {
             try {
                 almacenDao.delete(almacen)
-                almacenesCollection.document(almacen.id).delete()
+                getCollection(almacen.familiaId).document(almacen.id).delete()
             } catch (e: Exception) {
                 Log.e(TAG, "Error al eliminar almacén", e)
             }

@@ -54,14 +54,13 @@ class VM_StockCocina(
         if (localMatch != null) return localMatch
 
         return try {
-            val globalSnapshot = firestore.collection("productos_globales")
-                .whereEqualTo("barcode", barcode)
-                .limit(1)
+            val globalDoc = firestore.collection("productos_globales")
+                .document(barcode)
                 .get()
                 .await()
             
-            if (!globalSnapshot.isEmpty) {
-                globalSnapshot.documents[0].toObject(Producto::class.java)
+            if (globalDoc.exists()) {
+                globalDoc.toObject(Producto::class.java)
             } else {
                 null
             }
@@ -70,15 +69,21 @@ class VM_StockCocina(
         }
     }
 
-    fun addProducto(
-        nombre: String, 
-        marca: String, 
-        cantidad: Int, 
+    fun addProductoCompleto(
+        nombre: String,
+        marca: String,
+        cantidad: Int,
         almacenId: String,
         categoria: String = "",
-        infoNutricional: String? = null,
-        fotoUrl: String? = null,
-        barcode: String? = null
+        barcode: String? = null,
+        energia: String? = null,
+        grasas: String? = null,
+        grasasSaturadas: String? = null,
+        hidratos: String? = null,
+        azucares: String? = null,
+        proteinas: String? = null,
+        sal: String? = null,
+        fotoBase64: String? = null
     ) = viewModelScope.launch {
         val producto = Producto(
             nombre = nombre,
@@ -86,9 +91,15 @@ class VM_StockCocina(
             cantidad = cantidad,
             almacenId = almacenId,
             categoria = categoria,
-            infoNutricional = infoNutricional,
-            fotoUrl = fotoUrl,
-            barcode = barcode
+            barcode = barcode,
+            energia = energia,
+            grasas = grasas,
+            grasasSaturadas = grasasSaturadas,
+            hidratos = hidratos,
+            azucares = azucares,
+            proteinas = proteinas,
+            sal = sal,
+            fotoBase64 = fotoBase64
         )
         repository.addProducto(producto, _currentFamiliaId.value)
     }
