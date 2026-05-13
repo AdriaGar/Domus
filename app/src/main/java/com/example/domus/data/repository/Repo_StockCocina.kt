@@ -9,10 +9,11 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.SetOptions
-import com.google.firebase.firestore.ktx.toObjects
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -52,49 +53,51 @@ class Repo_StockCocina(private val stockDao: StockCocinaDao) {
                 repositoryScope.launch {
                     try {
                         val stockItems = snapshots.documents.map { doc ->
-                            val barcode = doc.getString("barcode")
-                            val productId = doc.getString("productId") ?: barcode ?: ""
-                            val cantidad = doc.getLong("cantidad")?.toInt() ?: 0
-                            val almacenId = doc.getString("almacenId") ?: ""
-                            
-                            var finalProducto = Producto(
-                                id = doc.id,
-                                barcode = barcode,
-                                cantidad = cantidad,
-                                almacenId = almacenId,
-                                familiaId = familiaId
-                            )
+                            async {
+                                val barcode = doc.getString("barcode")
+                                val productId = doc.getString("productId") ?: barcode ?: ""
+                                val cantidad = doc.getDouble("cantidad") ?: 0.0
+                                val almacenId = doc.getString("almacenId") ?: ""
+                                
+                                var finalProducto = Producto(
+                                    id = doc.id,
+                                    barcode = barcode,
+                                    cantidad = cantidad,
+                                    almacenId = almacenId,
+                                    familiaId = familiaId
+                                )
 
-                            // Lookup de datos globales
-                            val lookupId = if (!barcode.isNullOrEmpty()) barcode else productId
-                            if (lookupId.isNotEmpty()) {
-                                try {
-                                    val globalDoc = firestore.collection("productos_globales")
-                                        .document(lookupId)
-                                        .get()
-                                        .await()
-                                    
-                                    if (globalDoc.exists()) {
-                                        finalProducto = finalProducto.copy(
-                                            nombre = globalDoc.getString("nombre") ?: "",
-                                            marca = globalDoc.getString("marca") ?: "",
-                                            categoria = globalDoc.getString("categoria") ?: "",
-                                            fotoBase64 = globalDoc.getString("fotoBase64"),
-                                            energia = globalDoc.getString("energia"),
-                                            grasas = globalDoc.getString("grasas"),
-                                            grasasSaturadas = globalDoc.getString("grasasSaturadas"),
-                                            hidratos = globalDoc.getString("hidratos"),
-                                            azucares = globalDoc.getString("azucares"),
-                                            proteinas = globalDoc.getString("proteinas"),
-                                            sal = globalDoc.getString("sal")
-                                        )
+                                // Lookup de datos globales en paralelo
+                                val lookupId = if (!barcode.isNullOrEmpty()) barcode else productId
+                                if (lookupId.isNotEmpty()) {
+                                    try {
+                                        val globalDoc = firestore.collection("productos_globales")
+                                            .document(lookupId)
+                                            .get()
+                                            .await()
+                                        
+                                        if (globalDoc.exists()) {
+                                            finalProducto = finalProducto.copy(
+                                                nombre = globalDoc.getString("nombre") ?: "",
+                                                marca = globalDoc.getString("marca") ?: "",
+                                                categoria = globalDoc.getString("categoria") ?: "",
+                                                fotoBase64 = globalDoc.getString("fotoBase64"),
+                                                energia = globalDoc.getString("energia"),
+                                                grasas = globalDoc.getString("grasas"),
+                                                grasasSaturadas = globalDoc.getString("grasasSaturadas"),
+                                                hidratos = globalDoc.getString("hidratos"),
+                                                azucares = globalDoc.getString("azucares"),
+                                                proteinas = globalDoc.getString("proteinas"),
+                                                sal = globalDoc.getString("sal")
+                                            )
+                                        }
+                                    } catch (ge: Exception) {
+                                        Log.e(TAG, "Error lookup global: $lookupId", ge)
                                     }
-                                } catch (ge: Exception) {
-                                    Log.e(TAG, "Error lookup global: $lookupId", ge)
                                 }
+                                finalProducto
                             }
-                            finalProducto
-                        }
+                        }.awaitAll()
                         
                         stockDao.deleteAll()
                         stockDao.insertAll(stockItems)
@@ -108,64 +111,67 @@ class Repo_StockCocina(private val stockDao: StockCocinaDao) {
 
     suspend fun addProducto(producto: Producto, familiaId: String?) {
         val user = auth.currentUser ?: return
-        try {
-            // 1. ID Global
-            val globalProductId = if (!producto.barcode.isNullOrEmpty()) producto.barcode else firestore.collection("productos_globales").document().id
+        repositoryScope.launch {
+            try {
+                // 1. ID Global (prioridad al barcode)
+                val globalProductId = if (!producto.barcode.isNullOrEmpty()) producto.barcode 
+                                     else firestore.collection("productos_globales").document().id
 
-            // 2. Guardar datos técnicos (incluida fotoBase64) en RAÍZ
-            val globalData = mapOf(
-                "nombre" to producto.nombre,
-                "marca" to producto.marca,
-                "categoria" to producto.categoria,
-                "barcode" to producto.barcode,
-                "fotoBase64" to producto.fotoBase64,
-                "energia" to producto.energia,
-                "grasas" to producto.grasas,
-                "grasasSaturadas" to producto.grasasSaturadas,
-                "hidratos" to producto.hidratos,
-                "azucares" to producto.azucares,
-                "proteinas" to producto.proteinas,
-                "sal" to producto.sal
-            )
-            firestore.collection("productos_globales").document(globalProductId).set(globalData, SetOptions.merge()).await()
+                // 2. Guardar datos técnicos en RAÍZ "productos_globales"
+                val globalData = mapOf(
+                    "nombre" to producto.nombre,
+                    "marca" to producto.marca,
+                    "categoria" to producto.categoria,
+                    "barcode" to producto.barcode,
+                    "fotoBase64" to producto.fotoBase64,
+                    "energia" to producto.energia,
+                    "grasas" to producto.grasas,
+                    "grasasSaturadas" to producto.grasasSaturadas,
+                    "hidratos" to producto.hidratos,
+                    "azucares" to producto.azucares,
+                    "proteinas" to producto.proteinas,
+                    "sal" to producto.sal
+                )
+                firestore.collection("productos_globales").document(globalProductId).set(globalData, SetOptions.merge()).await()
 
-            // 3. Guardar en la FAMILIA/USUARIO (Stock real)
-            val collection = getCollection(familiaId)
-            val docRef = collection.document()
-            
-            val stockData = mapOf(
-                "productId" to globalProductId,
-                "barcode" to producto.barcode,
-                "cantidad" to producto.cantidad,
-                "almacenId" to producto.almacenId,
-                "usuarioId" to user.uid,
-                "familiaId" to familiaId
-            )
-            
-            docRef.set(stockData).await()
-            Log.d(TAG, "Guardado completo: Global + Stock")
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error crítico al guardar", e)
+                // 3. Guardar en la FAMILIA/USUARIO (Stock real)
+                val collection = getCollection(familiaId)
+                val docRef = collection.document()
+                
+                val stockData = mapOf(
+                    "productId" to globalProductId,
+                    "barcode" to producto.barcode,
+                    "cantidad" to producto.cantidad,
+                    "almacenId" to producto.almacenId,
+                    "usuarioId" to user.uid,
+                    "familiaId" to familiaId
+                )
+                
+                docRef.set(stockData).await()
+                Log.d(TAG, "Guardado completo en Firebase: Global + Stock")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error crítico al guardar en Firebase", e)
+            }
         }
     }
 
     suspend fun updateProducto(producto: Producto) {
         if (producto.id.isNotEmpty()) {
-            try {
-                val stockUpdate = mapOf(
-                    "cantidad" to producto.cantidad,
-                    "almacenId" to producto.almacenId
-                )
-                getCollection(producto.familiaId).document(producto.id).update(stockUpdate).await()
-                
-                // Si hay barcode, actualizamos también lo global por si cambió la foto o info
-                if (!producto.barcode.isNullOrEmpty()) {
-                    saveToGlobalProducts(producto)
+            repositoryScope.launch {
+                try {
+                    val stockUpdate = mapOf(
+                        "cantidad" to producto.cantidad,
+                        "almacenId" to producto.almacenId
+                    )
+                    getCollection(producto.familiaId).document(producto.id).update(stockUpdate).await()
+                    
+                    if (!producto.barcode.isNullOrEmpty()) {
+                        saveToGlobalProducts(producto)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error update", e)
                 }
-                stockDao.insertAll(listOf(producto))
-            } catch (e: Exception) {
-                Log.e(TAG, "Error update", e)
             }
         }
     }
@@ -193,11 +199,13 @@ class Repo_StockCocina(private val stockDao: StockCocinaDao) {
 
     suspend fun deleteProducto(producto: Producto) {
         if (producto.id.isNotEmpty()) {
-            try {
-                stockDao.delete(producto)
-                getCollection(producto.familiaId).document(producto.id).delete().await()
-            } catch (e: Exception) {
-                Log.e(TAG, "Error delete", e)
+            repositoryScope.launch {
+                try {
+                    stockDao.delete(producto)
+                    getCollection(producto.familiaId).document(producto.id).delete().await()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error delete", e)
+                }
             }
         }
     }

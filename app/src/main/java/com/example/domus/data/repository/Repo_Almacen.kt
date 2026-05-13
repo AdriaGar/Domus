@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class Repo_Almacen(private val almacenDao: AlmacenDao) {
 
@@ -28,7 +29,7 @@ class Repo_Almacen(private val almacenDao: AlmacenDao) {
 
     private fun getCollection(familiaId: String?): CollectionReference {
         val userId = auth.currentUser?.uid ?: throw IllegalStateException("Usuario no autenticado")
-        return if (familiaId != null) {
+        return if (!familiaId.isNullOrEmpty()) {
             firestore.collection("families").document(familiaId).collection("almacenes")
         } else {
             firestore.collection("users").document(userId).collection("almacenes")
@@ -62,28 +63,33 @@ class Repo_Almacen(private val almacenDao: AlmacenDao) {
 
     suspend fun addAlmacen(almacen: Almacen, familiaId: String?) {
         val user = auth.currentUser ?: return
-        try {
-            val collection = getCollection(familiaId)
-            val docRef = collection.document()
-            val finalAlmacen = almacen.copy(
-                id = docRef.id,
-                usuarioId = user.uid,
-                familiaId = familiaId
-            )
-            almacenDao.insertAll(listOf(finalAlmacen))
-            docRef.set(finalAlmacen)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error al añadir almacén", e)
+        repositoryScope.launch {
+            try {
+                val collection = getCollection(familiaId)
+                val docRef = collection.document()
+                val finalAlmacen = almacen.copy(
+                    id = docRef.id,
+                    usuarioId = user.uid,
+                    familiaId = familiaId
+                )
+                docRef.set(finalAlmacen).await()
+                almacenDao.insertAll(listOf(finalAlmacen))
+                Log.d(TAG, "Almacén guardado en Firebase")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error al añadir almacén", e)
+            }
         }
     }
 
     suspend fun deleteAlmacen(almacen: Almacen) {
         if (almacen.id.isNotEmpty()) {
-            try {
-                almacenDao.delete(almacen)
-                getCollection(almacen.familiaId).document(almacen.id).delete()
-            } catch (e: Exception) {
-                Log.e(TAG, "Error al eliminar almacén", e)
+            repositoryScope.launch {
+                try {
+                    almacenDao.delete(almacen)
+                    getCollection(almacen.familiaId).document(almacen.id).delete().await()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error al eliminar almacén", e)
+                }
             }
         }
     }

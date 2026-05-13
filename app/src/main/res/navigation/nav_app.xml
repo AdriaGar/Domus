@@ -69,8 +69,18 @@
     <fragment
         android:id="@+id/f_AnadirProductoStock"
         android:name="com.example.domus.app.F_AnadirProductoStock"
-        android:label="Añadir Producto"
-        tools:layout="@layout/fragment_anadir_producto_stock" />
+        android:label="{title}"
+        tools:layout="@layout/fragment_anadir_producto_stock">
+        <argument
+            android:name="productoId"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+        <argument
+            android:name="title"
+            app:argType="string"
+            android:defaultValue="Añadir Producto" />
+    </fragment>
 
     <fragment
         android:id="@+id/f_GestionarFamilia"

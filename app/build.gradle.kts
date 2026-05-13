@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
+    implementation("androidx.exifinterface:exifinterface:1.3.6")
 
     // Retrofit
     implementation(libs.retrofit)
@@ -64,6 +65,8 @@ dependencies {
     // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.navigation.fragment.ktx)
+    implementation(libs.navigation.ui.ktx)
     kapt(libs.androidx.room.compiler)
 
     // Firebase
@@ -72,6 +75,9 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
     implementation(libs.play.services.auth)
+
+    // Google Code Scanner
+    implementation(libs.play.services.code.scanner)
 
     // Glide
     implementation(libs.glide)

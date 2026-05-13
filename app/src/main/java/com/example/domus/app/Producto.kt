@@ -23,7 +23,7 @@ data class Producto(
     val sal: String? = null,
 
     // Datos de Stock
-    var cantidad: Int = 0,
+    var cantidad: Double = 0.0, // Cambiado a Double para soportar cuartos (0.25, 0.5, 0.75)
     val almacenId: String = "",
     val familiaId: String? = null,
     val usuarioId: String = ""

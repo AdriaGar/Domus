@@ -49,6 +49,15 @@
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_sugerir_cambio"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="Sugerir cambio"
+                android:visibility="gone" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_scan_barcode"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="match_parent"
@@ -121,6 +130,7 @@
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle2" />
 
             <GridLayout
+                android:id="@+id/gl_nutricional"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:columnCount="2"
@@ -252,7 +262,7 @@
                     android:id="@+id/tiet_cantidad"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="number"
+                    android:inputType="numberDecimal"
                     android:text="1" />
             </com.google.android.material.textfield.TextInputLayout>
 

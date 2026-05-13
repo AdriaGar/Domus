@@ -47,19 +47,58 @@ class F_StockCocina : Fragment() {
         binding.rvStockCocina.layoutManager = LinearLayoutManager(requireContext())
         binding.rvStockCocina.adapter = Adapt_StockCocina(
             onItemClick = { producto -> 
-                // Aquí podrías abrir una pantalla de edición si lo deseas
+                val bundle = Bundle().apply {
+                    putString("productoId", producto.id)
+                    putString("title", "Editar Producto")
+                }
+                findNavController().navigate(R.id.action_f_StockCocina_to_f_AnadirProductoStock, bundle)
             },
-            onDeleteClick = { producto -> showDeleteConfirmation(producto) }
+            onPlusClick = { producto -> viewModel.sumarCantidad(producto) },
+            onMinusClick = { producto -> 
+                viewModel.restarCantidad(producto) { prod ->
+                    showDeleteConfirmation(prod)
+                }
+            },
+            onHeaderClick = { almacen -> viewModel.toggleAlmacen(almacen.id) },
+            onAlmacenEdit = { almacen -> showEditAlmacenDialog(almacen) },
+            onAlmacenDelete = { almacen -> showDeleteAlmacenDialog(almacen) }
         )
     }
 
+    private fun showEditAlmacenDialog(almacen: Almacen) {
+        val input = EditText(requireContext())
+        input.setText(almacen.nombre)
+        input.hint = "Nuevo nombre"
+        
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Editar Almacén")
+            .setView(input)
+            .setPositiveButton("Guardar") { _, _ ->
+                val nuevoNombre = input.text.toString().trim()
+                if (nuevoNombre.isNotEmpty()) {
+                    viewModel.renameAlmacen(almacen, nuevoNombre)
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun showDeleteAlmacenDialog(almacen: Almacen) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Eliminar Almacén")
+            .setMessage("¿Estás seguro de que quieres eliminar '${almacen.nombre}'? Los productos no se borrarán, pero se quedarán en la sección 'Desconocido'.")
+            .setPositiveButton("Eliminar") { _, _ ->
+                viewModel.deleteAlmacen(almacen)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
     private fun setupFabs() {
-        // Navegar a añadir producto
         binding.fabAddStockItem.setOnClickListener {
             findNavController().navigate(R.id.action_f_StockCocina_to_f_AnadirProductoStock)
         }
 
-        // Diálogo para añadir nuevo almacén
         binding.fabAddAlmacen.setOnClickListener {
             showAddAlmacenDialog()
         }
@@ -84,40 +123,54 @@ class F_StockCocina : Fragment() {
 
     private fun showDeleteConfirmation(producto: Producto) {
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Eliminar producto")
-            .setMessage("¿Quieres quitar '${producto.nombre}' del stock?")
-            .setPositiveButton("Eliminar") { _, _ -> viewModel.deleteProducto(producto) }
+            .setTitle("¿Eliminar ${producto.nombre}?")
+            .setMessage("El producto se agotará. ¿Quieres añadirlo a la lista de la compra?")
+            .setNeutralButton("Solo eliminar") { _, _ -> 
+                viewModel.deleteProducto(producto, addToShoppingList = false) 
+            }
+            .setPositiveButton("Añadir a la lista") { _, _ -> 
+                viewModel.deleteProducto(producto, addToShoppingList = true) 
+            }
             .setNegativeButton("Cancelar", null)
             .show()
     }
 
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
-            // Combinamos productos y almacenes para crear la lista visual organizada
-            combine(viewModel.allProductos, viewModel.allAlmacenes) { productos, almacenes ->
-                Pair(productos, almacenes)
-            }.collect { (productos, almacenes) ->
+            combine(
+                viewModel.allProductos, 
+                viewModel.allAlmacenes, 
+                viewModel.expandedAlmacenes
+            ) { productos, almacenes, expanded ->
+                Triple(productos, almacenes, expanded)
+            }.collect { (productos, almacenes, expanded) ->
                 
                 val displayList = mutableListOf<StockDisplayItem>()
-                
-                // Agrupamos productos por almacenId
                 val productosPorAlmacen = productos.groupBy { it.almacenId }
                 
-                // 1. Añadimos productos organizados por sus almacenes registrados
+                // 1. Mostrar almacenes reales (ordenados por nombre o como vengan)
                 almacenes.forEach { almacen ->
                     val productosEnAlmacen = productosPorAlmacen[almacen.id] ?: emptyList()
-                    if (productosEnAlmacen.isNotEmpty()) {
-                        displayList.add(StockDisplayItem.Header(almacen.nombre))
+                    val isExpanded = expanded.contains(almacen.id)
+                    
+                    displayList.add(StockDisplayItem.Header(almacen, isExpanded, productosEnAlmacen.size))
+                    
+                    if (isExpanded) {
                         productosEnAlmacen.forEach { 
                             displayList.add(StockDisplayItem.Product(it)) 
                         }
                     }
                 }
                 
-                // 2. Añadimos productos que no tengan almacén asignado (si los hay)
-                val productosSinAlmacen = productos.filter { it.almacenId.isEmpty() }
-                if (productosSinAlmacen.isNotEmpty()) {
-                    displayList.add(StockDisplayItem.Header("Sin ubicación"))
+                // 2. Mostrar sección "Desconocido" para productos sin almacén asignado
+                val productosSinAlmacen = productos.filter { it.almacenId.isEmpty() || !almacenes.any { a -> a.id == it.almacenId } }
+                val dummyAlmacen = Almacen(id = "desconocido", nombre = "Desconocido")
+                val isExpandedDesconocido = expanded.contains(dummyAlmacen.id)
+                
+                // Siempre mostramos la sección Desconocido al final
+                displayList.add(StockDisplayItem.Header(dummyAlmacen, isExpandedDesconocido, productosSinAlmacen.size))
+                
+                if (isExpandedDesconocido) {
                     productosSinAlmacen.forEach { 
                         displayList.add(StockDisplayItem.Product(it)) 
                     }
